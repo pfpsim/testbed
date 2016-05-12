@@ -1,0 +1,66 @@
+sudo: required
+
+language: cpp
+
+compiler:
+  - clang
+  - gcc
+
+
+before_install:
+  - sudo cp /etc/apt/sources.list /etc/apt/sources.list.d/trusty.list
+  - sudo sed -i 's/precise/trusty/g' /etc/apt/sources.list.d/trusty.list
+  - sudo apt-get update -qq -y
+  # P4 dependencies
+  - sudo apt-get install -q -y libjudy-dev
+                               libgmp-dev
+                               libpcap-dev
+                               libboost-dev
+                               libboost-test-dev
+                               libboost-program-options-dev
+                               libboost-system-dev
+                               libboost-filesystem-dev
+                               libboost-thread-dev
+                               libevent-dev
+                               python-setuptools # For setup.py install
+  # Install a modern version of gcc and libstdc++
+  - if [ "$CXX" = "clang++" ]; then sudo apt-get install -y -qq libprotobuf-dev libstdc++-4.8-dev; fi
+  - if [ "$CXX" = "g++" ];     then sudo apt-get install -y -qq libprotobuf-dev g++-4.8; fi
+  - if [ "$CXX" = "g++" ];     then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  # Install SystemC
+  - wget http://www.accellera.org/images/downloads/standards/systemc/systemc-2.3.1.tgz
+  - tar -xzf systemc-2.3.1.tgz
+  - cd systemc-2.3.1
+  - ./configure --prefix=/usr --with-unix-layout
+  - make
+  - sudo make install
+  - cd ..
+  # Install nanomsg
+  - wget http://download.nanomsg.org/nanomsg-0.5-beta.tar.gz
+  - tar -xzf nanomsg-0.5-beta.tar.gz
+  - cd nanomsg-0.5-beta
+  - ./configure
+  - make
+  - sudo make install
+  - cd ..
+  # Install PFPSim core and PFP-P4
+  - .travis/get-PFPSim.py "v2.1.1" "$CXX" "$GITHUB_TOKEN"
+  - sudo dpkg -i pfpsim*.deb
+  # Install pfpgen
+  - git clone git@github.com:pfpsim/pfpgen.git --branch master
+  - cd pfpgen
+  - sudo python setup.py install
+  - cd ..
+
+install:
+  - pfpgen npu.fad
+  - cd npu/build
+  - cmake ../src
+  - make -j2
+
+script:
+  - cp -r ../build_static/* ./
+  - ./runme.sh
+env:
+  global:
+    secure: U6D9MqcIaG6FoafJbCNtEaYwbGpQxnkLaI072TAhsH7+YxsyLQoH75TcvB9teiXf8NJdLVQPdDs0idV7d8SQU7Nn7Ili1E1d1hl1txOdTRPoUJEyOnASSjnkCoaFI64VGd7ivI3wqS5uE0INjKXK+S48T0UperCLawbds9tXXYli+wnc1cff4xUuaBuokQAL5vzk/+5EblC5rISXzrEB9NVh8pUOkCAs4K9MVWOQlESyUs81EWfwia6Q2yHjtcGCn3VoBexXS/HNxz0Xw7qGWOZvf/947OdB3I1r7WkooEUh3CvvY2vLz+zfgpFPCcwwIqWdbofpFec01PIGKMoyUd0AM4HWcG8Lh7mOG/O8ToRLaaCokWuMYPeqkLG45pyPpQLHWnetn67JJHUWlWWMS2ldwyXwQj2tE1RB2kNoG3MgkHA2doemy3PaUS4hHicbkm/z34w3APE5GCjfaDssWoYivnAf+wjsw80HoXb+hDRClpdwuU3Cl55kpK7NQ1yAS/ohg9/BgsTezEtxNIs86N4i+psTZ3lCrXA7iUemC198X7+4KeYbKqJyGkYhv+fzeZd2ISjtobxnfYJIIsEqmcZTaPgnggQeVRh4+GmZdmmCcBEY5+Y6BDRUkFPhmSVUVtlBomAtaz5nk4jRrVNeKuGtrhDwVvENKq6TgWlEcoY=
