@@ -1,14 +1,44 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "./ControlPlaneAgentHAL.h"
 #include <string>
 #include <vector>
 #include "common/RoutingPacket.h"
 #include "common/routingdefs.h"
-
-ControlPlaneAgentHAL::ControlPlaneAgentHAL(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):ControlPlaneAgentHALSIM(nm, parent, configfile) {  // NOLINT(whitespace/line_length)
+#include "common/IPC_MEM.h"
+ControlPlaneAgentHAL::ControlPlaneAgentHAL(
+  sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):
+            ControlPlaneAgentHALSIM(nm, parent, configfile),
+            meminfo(CONFIGROOT+"MemoryAddressMapping.cfg") {
   /*sc_spawn threads*/
-  // TODO(Lemniscate) don't hardcode
-  LoadMemoryConfig(CONFIGROOT+"memory_48_12edrams.cfg");
-  LoadMemoryMAPConfig(CONFIGROOT+"memorymap_48_12edrams.cfg");
 }
 
 void ControlPlaneAgentHAL::init() {
@@ -22,6 +52,7 @@ ControlPlaneAgentHAL::tlmallocate(int BytestoAllocate) {
   auto memmessage = std::make_shared<IPC_MEM>();
   memmessage->id(3146);
   memmessage->RequestType = "ALLOCATE";
+  memmessage->Allocation  = "TRIE";
   memmessage->bytes_to_allocate = BytestoAllocate;
   // TODO(gordon/Lemniscate) SET function is in ControlPlaneAgent
   memmessage->table_name = "TODO";
@@ -37,32 +68,35 @@ ControlPlaneAgentHAL::tlmallocate(int BytestoAllocate) {
 void
 ControlPlaneAgentHAL::tlmwrite(int VirtualAddress, int data, TlmType size) {
   // 1. Find Where does this write go ?
-  memdecode result = decodevirtual(VirtualAddress);
+  memdecode result = meminfo.decodevirtual(VirtualAddress);
   // 2. Write to mem + shadow edmems if decode return addr lies in edram region
-  if (result.memname.find("ed") != std::string::npos) {
-    std::vector<std::string> paths_to_mems = getmempaths_map();
-    for (std::vector<std::string>::iterator it = paths_to_mems.begin();
-         it!= paths_to_mems.end(); ++it) {
-  // 2.1 If ed set write to each
-    std::string destination  = *it;
+  if (result.mappingdecode) {
+    std::string AddressMapKey = meminfo.Mapping_Key(result.memname);
+    auto Mapping = meminfo.AddressMapping[AddressMapKey];
+    int totalclusters = SimulationParameters["clusters"].get<int>();
+    for (int clusternum = 0 ; clusternum < totalclusters; clusternum++) {
+      std::string Clusterpath = cluster_prefix;
+      Clusterpath = Clusterpath+"["+std::to_string(clusternum)+"]";
+      for (json::iterator it = Mapping.begin(); it != Mapping.end(); ++it) {
+        std::string MemoryName = it.value();
+        std::string pathtomem = Clusterpath+"."+MemoryName;
+        auto memmessage = std::make_shared<IPC_MEM>();
+        memmessage->id(3146);
+        memmessage->RequestType = "WRITE";
+        memmessage->bytes_to_allocate = data;
+        memmessage->tlm_address = result.physcialaddr;
+        ocn_wr_if->write(make_routing_packet
+                        (GetParent()->module_name(), pathtomem, memmessage));
+      }
+    }
+  } else {
     auto memmessage = std::make_shared<IPC_MEM>();
     memmessage->id(3146);
     memmessage->RequestType = "WRITE";
     memmessage->bytes_to_allocate = data;
     memmessage->tlm_address = result.physcialaddr;
     ocn_wr_if->write(make_routing_packet
-                      (GetParent()->module_name(), destination, memmessage));
-    }
-  } else if (result.memname.find("mct") != std::string::npos) {
-    auto memmessage = std::make_shared<IPC_MEM>();
-    memmessage->id(3147);
-    memmessage->RequestType = "WRITE";
-    memmessage->bytes_to_allocate = data;
-    memmessage->tlm_address = result.physcialaddr;
-    ocn_wr_if->write(make_routing_packet
                     (GetParent()->module_name(), result.mempath, memmessage));
-  } else {
-    npu_error("Unknown Decode -ControlPlane AGENT: -"+result.memname);
   }
   // 3. Return Control
   return;
@@ -70,13 +104,29 @@ ControlPlaneAgentHAL::tlmwrite(int VirtualAddress, int data, TlmType size) {
 
 ControlPlaneAgentHAL::TlmType
 ControlPlaneAgentHAL::tlmread(int VirtualAddress) {
-  memdecode result = decodevirtual(VirtualAddress);
+  memdecode result = meminfo.decodevirtual(VirtualAddress);
+  std::string pathtomem = "INVALID-rdcp";
+  if (result.mappingdecode) {
+    std::string AddressMapKey = meminfo.Mapping_Key(result.memname);
+    auto Mapping = meminfo.AddressMapping[AddressMapKey];
+    std::string Clusterpath = cluster_prefix;
+    Clusterpath = Clusterpath+"["+std::to_string(0)+"]";
+    std::string firstmem = "INVALID-READCP";
+    for (json::iterator it = Mapping.begin(); it != Mapping.end(); ++it) {
+      firstmem = it.value();
+      break;
+    }
+    pathtomem = Clusterpath + "." + firstmem;
+  } else {
+    pathtomem = result.mempath;
+  }
+
   auto memmessage = std::make_shared<IPC_MEM>();
   memmessage->id(3148);
   memmessage->RequestType = "READ";
   memmessage->tlm_address = result.physcialaddr;
   ocn_wr_if->put(make_routing_packet
-                (GetParent()->module_name(), result.mempath, memmessage));
+                (GetParent()->module_name(), pathtomem, memmessage));
 
   auto received_tr = unbox_routing_packet<IPC_MEM>(ocn_rd_if->get());
   auto ipcpkt = received_tr->payload;

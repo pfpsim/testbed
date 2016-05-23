@@ -1,29 +1,64 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "./HAL.h"
 #include <string>
 #include "common/ApplicationRegistry.hpp"
 #include "common/RoutingPacket.h"
+#include "common/RPCPacket.h"
+#include "common/routingdefs.h"
 
-#define CORE_NODROP
-// #define CORE_DROP
-// TODO(Lemniscate) : check sem for parameter search
-HAL::HAL(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):HALSIM(nm, parent, configfile), sem_("Semaphore", 16) {  // NOLINT(whitespace/line_length)
-  LoadMemoryConfig(CONFIGROOT+"memory_48_12edrams.cfg");
-  LoadMemoryMAPConfig(CONFIGROOT+"memorymap_48_12edrams.cfg");
+HAL::HAL(
+  sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):
+      HALSIM(nm, parent, configfile),
+      sem_("Semaphore", 16),
+      meminfo(CONFIGROOT+"MemoryAddressMapping.cfg") {
   tlmreqcounter = 0;
+  JobRequestCounter = 0;
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(sc_bind(&HAL::HAL_PortServiceThread, this)));
 }
 
 void HAL::init() {
     init_SIM(); /* Calls the init of sub PE's and CE's */
+    ProcessedPDs = parent_->module_name()+"_PROCESSED_PD";
+    add_counter(ProcessedPDs);
+    AssignedPDs = parent_->module_name()+"_RECEIVED_PD";
+    add_counter(AssignedPDs);
 }
+
 void HAL::HAL_PortServiceThread() {
   while (1) {
     auto received_tr = cluster_local_switch_rd_if->get();
-
     npulog(debug,
       cout << "HAL [PortService] received ID:" << received_tr->id() << endl;)
-
     auto ipcpkt = std::dynamic_pointer_cast<IPC_MEM>(received_tr);
     if (auto ipcpkt = try_unbox_routing_packet<IPC_MEM>(received_tr)) {
       tlmvar_halmutex.lock();
@@ -35,6 +70,7 @@ void HAL::HAL_PortServiceThread() {
       // job assignment: Schedular->Core
       job_queue_.push(received_pd->payload);
       evt_.notify();  // Kickstart the threads
+      increment_counter(AssignedPDs);
     } else if (auto received_p =
                     try_unbox_routing_packet<Packet>(received_tr)) {
       // source == Memory requested payload
@@ -71,12 +107,6 @@ void HAL::register_port(sc_port_base& port_, const char* if_typename_) {
 bool HAL::GetJobfromSchedular(std::size_t thread_id,
                               std::shared_ptr<PacketDescriptor>* pd,
                               std::shared_ptr<Packet>* payload) {
-  int qsize;
-  job_queue_.size(qsize);
-  // All threads initially wait for permission to start
-  if (qsize == 0) {
-    wait(evt_);
-  }
   // this is used for the modules outside cluster when want to send back
   // to a module inside cluster. they need to know exact hierarchy
   // example: Memory
@@ -91,6 +121,23 @@ bool HAL::GetJobfromSchedular(std::size_t thread_id,
   hal_core_name = std::string(clustername);
   core_number = "."+std::string(clustername);
 
+  // 1. Try to get a Job.
+  int qsize;
+  job_queue_.size(qsize);
+  // All threads initially wait for permission to start
+  if (qsize == 0) {
+    // Send out a request to the local schedular to send me a job,
+    // Job buffer is empty, got to have a job.
+    SchedulerMessages RequestaJob(JobRequestCounter++, "GetAJob", clustername);
+    cluster_local_switch_wr_if->put(
+          make_routing_packet<RPCMessage<SchedulerMessages>>(
+              name + core_number,
+              cluster_scheduler_prefix,
+              std::make_shared<RPCMessage<SchedulerMessages>>(
+                    RequestaJob.id,
+                    RequestaJob)));
+    wait(evt_);
+  }
   // Get semaphore access
   // (number of threads that can access equal to CONFIG(teu_active_threads))
   sem_.wait();
@@ -110,38 +157,6 @@ bool HAL::GetJobfromSchedular(std::size_t thread_id,
   payload_requested_pds.emplace(received_pd->id(), received_pd);
   wait(payload_);
   mtx_payload.unlock();
-
-  #ifdef CORE_DROP
-  // Check if packet exists in buffer
-  if (buffer_.find(received_pd->id()) == buffer_.end()) {
-    received_pd->drop(true);
-    drop_data(received_pd, "CORE memory");
-    std::cerr << "CORE dropped because of memory!!!! for "
-             << received_pd->id() << endl;
-    received_pd->source(name+ core_number);
-    received_pd->destination("ODE");
-    cluster_local_switch_wr_if->put(
-        std::make_shared<PacketDescriptor>(received_pd));
-
-    std::cerr << "debug drop: CORE to ODE " << module_name() << " wrote packet"
-              << received_pd->id() << " header to " << parent_->module_name()
-              << " in thread " << thread_id << std::endl;
-
-    notify_thread_end(module_name(), parent_->module_name(),
-        thread_id, received_pd->id(), sc_time_stamp().to_default_time_units());
-    // Now post -- all 4 tokens will become free
-    sem_.post();
-    return false;
-  } else {
-    mtx_teu_request_mem.lock();
-    Packet received_p = buffer_.at(received_pd->id());
-    mtx_teu_request_mem.unlock();
-    payload = received_p;
-    return true;
-  }
-#endif
-
-#ifdef CORE_NODROP
   // Check if packet exists in buffer
   bool payload_in_buffer = false;
   while (payload_in_buffer == false) {
@@ -156,7 +171,6 @@ bool HAL::GetJobfromSchedular(std::size_t thread_id,
   mtx_teu_request_mem.unlock();
   *payload = received_p;
   return true;
-#endif
 }
 
 bool HAL::do_processing(std::size_t thread_id,
@@ -183,10 +197,11 @@ bool HAL::SendtoODE(std::size_t thread_id,
   cluster_local_switch_wr_if->put(make_routing_packet
                                   (module_name_, "roc", received_pd));
   cluster_local_switch_wr_if->put(make_routing_packet
-                                  (module_name_, "parser", received_pd));
+                              (core_number, "cluster_scheduler", received_pd));
 
   //  3  Now post -- all 4 tokens will become free
   sem_.post();
+  increment_counter(ProcessedPDs);
   return true;
 }
 /*
@@ -199,24 +214,19 @@ std::size_t HAL::tlmread(TlmType VirtualAddress, TlmType data,
   // 1. Virtual Address
   TlmType vaddr = VirtualAddress;
   // 2. Get Physical Address from the Virtual Address Space
-  memdecode result = decodevirtual(vaddr);
+  memdecode result = meminfo.decodevirtual(vaddr);
   // 3.1 We need to find the target memory
   std::string destination_memory = "Not available";
-  // 3.1.1 IF target mem is ed then set target edmem according to teu-edram map
-  if (result.memname.find("ed") != std::string::npos) {
-    auto searchresult = teulist_map.find(hal_core_name);
-    if (searchresult != teulist_map.end()) {
-      destination_memory = searchresult->second;
-    } else {
-      npu_error("TLMVAR read edram map search failed in HAL:"+hal_core_name);
-    }
-  // 3.1.2 else if mem is MCT then set it to MEM
-  } else if (result.memname.find("mct") != std::string::npos) {
-    destination_memory = result.memname;
-  // 3.1.3 invalid HALT & DIE
+  // 3.1.1 IF target mem is ed then set target edmem according to edram map
+  if (result.mappingdecode) {
+    std::string AddressMapKey = meminfo.Mapping_Key(result.memname);
+    destination_memory
+          = meminfo.getDestinationMemory(GetParent()->module_name());
   } else {
-    npu_error("DECODE MEM NAME Not matched HAL - TLMVAR read");
+    destination_memory = result.mempath;
   }
+
+
   // 3.2 Prepare Packet to send to MEM
   // 3.2.1 set the destination memory
   auto memmessage = make_routing_packet
@@ -241,13 +251,18 @@ std::size_t HAL::tlmread(TlmType VirtualAddress, TlmType data,
   tlmvar_halmutex.unlock();
 
   if (recv_p->id() != pktid) {
-    npu_error("MAP ERROR HAL"+core_number+" for id: "+std::to_string(recv_p->id()));
+    npu_error("MAP ERROR HAL"+core_number+
+              " for id: "+std::to_string(recv_p->id()));
   }
   if (recv_p->bytes_to_allocate != val_compare) {
     npulog(
-    cout << "HAL Val compare: @addr" << VirtualAddress<<" -->" << recv_p->bytes_to_allocate << " -- " << val_compare << endl;  // NOLINT (whitespace/line_length)
-    cout << "Req for vaddr:" << memmessage->payload->tlm_address << " got for:" << recv_p->tlm_address << " reqcounteris:" << tlmreqcounter << endl;   // NOLINT (whitespace/line_length)
-    )
+      cout << "HAL Val compare: @addr" << VirtualAddress
+           << " -->" << recv_p->bytes_to_allocate
+           << " -- " << val_compare
+           << endl
+           << "Req for vaddr:" << memmessage->payload->tlm_address
+           << " got for:" << recv_p->tlm_address
+           << " reqcounteris:" << tlmreqcounter << endl;)
   }
   return recv_p->bytes_to_allocate;
 }

@@ -1,22 +1,51 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #ifndef BEHAVIOURAL_MEMORY_H_
 #define BEHAVIOURAL_MEMORY_H_
 
 #include <string>
+#include <vector>
 #include "../structural/MemorySIM.h"
 #include "MemI.h"
 
-#include "common/Memorymaps.h"
 // #define debug_tlm_mem_transaction 1
 template<typename T>
 class Memory:
 public MemI<T>,
-public MemorySIM,
-public MemoryMaps {
+public MemorySIM {
  public:
   /* CE Consturctor */
-  Memory
-  (sc_module_name nm,
-   pfp::core::PFPObject* parent = 0, std::string configfile = "");
+  Memory(sc_module_name nm,
+         pfp::core::PFPObject* parent = 0,
+         std::string configfile = "");
   /* User Implementation of the Virtual Functions in the Interface.h file */
   virtual void b_transport(tlm::tlm_generic_payload& trans, sc_time& delay) {
     tlm::tlm_command cmd = trans.get_command();
@@ -48,7 +77,7 @@ public MemoryMaps {
 
  private:
   std::string modulename;
-  int* mem;
+  std::vector<int> mem;
   uint64_t SIZE;
   sc_time RD_LATENCY;
   sc_time WR_LATENCY;
@@ -61,26 +90,18 @@ template<typename T>
 Memory<T>::Memory
   (sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile)
   : MemorySIM(nm, parent, configfile) {
-  // Search in MemoryMap for itself and get its own parameters
-  LoadMemoryMAPConfig(CONFIGROOT+"memorymap_48_12edrams.cfg");
-  sc_object* parentmod = this->get_parent_object();
-  std::string parentname = parentmod->basename();
-  modulename = parentname;
-  int count = memnames_map.size();
-  for (int i = 0; i < count; i++) {
-    if (memnames_map.at(i).find(modulename) != std::string::npos) {
-      sc_time rd_lat(mem_rd_latecy_map.at(i), SC_NS);
-      sc_time wr_lat(mem_wr_latency_map.at(i), SC_NS);
-      int mem_size = memboundries_map.at(i);
-      RD_LATENCY = rd_lat;
-      WR_LATENCY = wr_lat;
-      SIZE = mem_size;
-    }
-  }
-  mem = new int[SIZE];  // allocate the mem block on host mem in heap
+  int rdlt = GetParameter("ReadLatency").template get<int>();
+  int wrlt = GetParameter("WriteLatency").template get<int>();
+
+  sc_time rd_lat(rdlt, SC_NS);
+  sc_time wr_lat(wrlt, SC_NS);
+  int mem_size = GetParameter("Capacity").template get<int>();
+  RD_LATENCY = rd_lat;
+  WR_LATENCY = wr_lat;
+  SIZE = mem_size;
   // Initialize memory with random data
   for (int i = 0; i < SIZE; i++) {
-    mem[i] = 0xAA000000;
+    mem.push_back(0xAA000000);
   }
 }
 

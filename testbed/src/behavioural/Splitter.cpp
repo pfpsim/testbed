@@ -1,3 +1,33 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "./Splitter.h"
 #include <string>
 #include <chrono>  // NOLINT(build/c++11)
@@ -79,8 +109,8 @@ void Splitter::SplitterThread(std::size_t thread_id) {
         npulog(minimal,
           cout << "received Packet" << IBlue << npu_packet->id() << txtrst
                << " from ingress" << endl;)
-        // outlog << npu_packet->id() << ","
-        //       << sc_time_stamp().to_default_time_units() << endl;
+        outlog << npu_packet->id() << ","
+               << sc_time_stamp().to_default_time_units() << endl;
         counter1++;
 
         // 1.1. Extract data
@@ -121,6 +151,7 @@ void Splitter::SplitterThread(std::size_t thread_id) {
         auto memmessage = std::make_shared<IPC_MEM>();
         memmessage->id(npu_packet->id());
         memmessage->RequestType = "ALLOCATE";
+        memmessage->Allocation  = "Payload";
         memmessage->bytes_to_allocate = static_cast<int>
                                         (npu_packet->data().size());
         npulog(profile, cout << "Memory manager to allocate "

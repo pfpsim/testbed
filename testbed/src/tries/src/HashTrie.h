@@ -1,3 +1,33 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 //
 //  HashTrie.h
 //
@@ -18,38 +48,38 @@ public:
     // Constructor
     HashTrie(T iDefaultAction, int iDefaultActionSize, std::hash<BitString> *iHashFunc = 0);
     HashTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, T iDefaultAction, int iDefaultActionSize, std::hash<BitString> *iHashFunc = 0);
-    
+
     // Destructor
     ~HashTrie();
-    
+
     // Update
     virtual void update(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, typename Trie<T>::Action iAction);
-    
+
     // Lookup
     T exactPrefixMatch(BitString iKey) const;
     T longestPrefixMatch(BitString iKey) const;
-    
+
     // Insert
     void insert(BitString iKey, T iAction, int iActionSize);
-    
+
     // Remove
     void remove(BitString iKey);
-    
+
 private:
     HashTableEntry<T> *mRoot;
     std::hash<BitString> *mHashFunction;
     T mDefaultAction;
-    
+
     unsigned int extract(unsigned int iKey, int iPos, int iNum) const;
     unsigned int createMask(unsigned int a, unsigned int b) const;
-    
+
     T exactPrefixMatch(BitString iKey, unsigned int iHashKey, HashTableEntry<T> *iEntry, int iPos) const;
     void insert(BitString iKey, T iAction, int iActionSize, unsigned int iHashKey, HashTableEntry<T> *iEntry, int iPos);
     void remove(BitString iKey, unsigned int iHashKey, HashTableEntry<T> *iEntry, int iPos);
     int popcount(unsigned int iBitstring) const;
     string DecimalToBinaryString(int iDecimal, const int iNumOfBits) const;
-    
-    
+
+
 };
 
 //
@@ -146,7 +176,7 @@ T HashTrie<T>::exactPrefixMatch(BitString iKey) const {
     unsigned int wHashKey = (unsigned int) (*mHashFunction)(iKey);
     // Extract first 5 bits of the key
     int wIndex = extract(wHashKey, 0, STRIDE);
-    
+
     // Find corresponding entry in the root hash table
     HashTableEntry<T> *wEntry = &mRoot[wIndex];
     return exactPrefixMatch(iKey, wHashKey, wEntry, STRIDE);
@@ -225,7 +255,7 @@ void HashTrie<T>::insert(BitString iKey, T iAction, int iActionSize) {
     unsigned int wHashKey = (unsigned int)(*mHashFunction)(iKey);
     // Extract first 5 bits of the key
     int wIndex = extract(wHashKey, 0, STRIDE);
-    
+
     HashTableEntry<T> *wEntry = &mRoot[wIndex];
     insert(iKey, iAction, iActionSize, wHashKey, wEntry, STRIDE);
 }
@@ -333,7 +363,7 @@ void HashTrie<T>::remove(BitString iKey) {
     unsigned int wHashKey = (unsigned int)(*mHashFunction)(iKey);
     // Extract first 5 bits of the key
     int wIndex = extract(wHashKey, 0, STRIDE);
-    
+
     HashTableEntry<T> *wEntry = &mRoot[wIndex];
     remove(iKey, wHashKey, wEntry, STRIDE);
 }

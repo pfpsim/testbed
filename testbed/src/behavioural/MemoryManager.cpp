@@ -1,8 +1,41 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "./MemoryManager.h"
 #include <string>
 #include "common/RoutingPacket.h"
-
-MemoryManager::MemoryManager(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):MemoryManagerSIM(nm, parent, configfile), outlog(OUTPUTDIR+"MemoryManagerAllocationTrace.csv") {  // NOLINT(whitespace/line_length)
+#include "common/IPC_MEM.h"
+MemoryManager::MemoryManager(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):  // NOLINT
+  MemoryManagerSIM(nm, parent, configfile),
+  outlog(OUTPUTDIR+"MemoryManagerAllocationTrace.csv"),
+  meminfo(CONFIGROOT+"MemoryAddressMapping.cfg") {
     /*sc_spawn threads*/
   ThreadHandles.push_back
       (sc_spawn(sc_bind(&MemoryManager::MemoryManagerThread, this, 0)));
@@ -10,90 +43,86 @@ MemoryManager::MemoryManager(sc_module_name nm, pfp::core::PFPObject* parent, st
 
 void MemoryManager::init() {
   init_SIM(); /* Calls the init of sub PE's and CE's */
-  setsourcetome_ = "cluster_0."+module_name_;
-  parentmod_ = "cluster_0";
-  LoadMemoryConfig(CONFIGROOT+"memory_48_12edrams.cfg");
-  for (auto memorynames : memnames) {
-    add_counter(memorynames+"Usage");
+  setsourcetome_ = module_name();
+
+  auto globalMemConfig = meminfo.GetGlobalMemoryLayout();
+  VirtualMemMaxSize = meminfo.CalculateMaxVirtualAddress(globalMemConfig);
+  auto AllocationTable = meminfo.AddressMapping["ALLOCATE"];
+  for (json::iterator it = AllocationTable.begin();
+       it != AllocationTable.end();
+       ++it) {
+    std::string Name = it.key();
+    uint64_t lowerrange = it.value().at(0).get<uint64_t>();
+    uint64_t upperrange = it.value().at(1).get<uint64_t>();
+    MemoryRegions[Name] = FreeMemoryTracker(lowerrange, upperrange);
+  }
+
+  for (auto it = MemoryRegions.begin() ; it != MemoryRegions.end(); it++) {
+    // cout << "Name: "<<it -> first << endl;
+    // it->second.print();
   }
 }
+
 void MemoryManager::MemoryManager_PortServiceThread() {
   // Thread function to service input ports.
 }
+
 void MemoryManager::MemoryManagerThread(std::size_t thread_id) {
   while (1) {
-    auto received = unbox_routing_packet<IPC_MEM>
-                                        (cluster_local_switch_rd_if->get());
+    auto received = unbox_routing_packet<IPC_MEM>(rd_if->get());
     auto ipcpkt = received->payload;
+    if (ipcpkt->RequestType.find("ALLOCATE") !=std::string::npos) {
+      auto VirtualAddress
+           = Allocate(ipcpkt->bytes_to_allocate, ipcpkt->Allocation);
 
-      if (ipcpkt->RequestType.find("ALLOCATE") !=std::string::npos) {
-        npulog(profile, cout << "Memory manager received a request" << endl;)
-        tlm_addr_ virtualaddr = TlmAllocate(ipcpkt->bytes_to_allocate);
-        memdecode dest = decodevirtual(virtualaddr);
+      auto virtualaddr = Allocate(ipcpkt->bytes_to_allocate,
+                                  ipcpkt->Allocation);
 
-        npulog(profile, cout <<"!& --- MemoryManager allocation completed:"
-          << endl
-          << "   --- alloc req from:" <<received->source <<endl
-          << "   --- vaddr:" <<virtualaddr <<endl
-          << "   --- paddr:" <<dest.physcialaddr <<endl
-          << "   --- dest :" <<dest.memname <<endl
-          << "   --- free addr head at :" <<addrcounter <<endl
-          << "   --- just allocated :" <<ipcpkt->bytes_to_allocate <<endl;)
+      memdecode dest = meminfo.decodevirtual(virtualaddr);
 
-        // outlog << "MemoryManager@" << sc_time_stamp() << ":"
-        //      << "Source," << received->source << ",V," << virtualaddr
-        //      << ",P," << dest.physcialaddr << ",dest," << dest.memname
-        //      << ",free addr head at:," << addrcounter
-        //      << ",TableName:," << ipcpkt->table_name
-        //      << ",Wordallocation," << ipcpkt->bytes_to_allocate
-        //      << ",Byteallocation,"
-        //      << wordsizetoBytes(ipcpkt->bytes_to_allocate)
-        //      <<endl;
+      // TODO(Lemniscate): Condense it
+      ipcpkt->table_name = "";
+      ipcpkt->tlm_address = dest.physcialaddr;
+      ipcpkt->target_mem_name = dest.memname;  // memname
+      ipcpkt->decode_via_mapping = dest.mappingdecode;
+      ipcpkt->target_mem_mod = dest.mempath;
 
-        ipcpkt->table_name = "";
-        ipcpkt->tlm_address = dest.physcialaddr;
-        ipcpkt->target_mem_mod = dest.mempath;
-        ipcpkt->target_mem_name = dest.memname;  // memname
+      // For Debugger
+      increment_counter
+      (dest.memname + "Usage", wordsizetoBytes(ipcpkt->bytes_to_allocate));
 
-        // For Debugger
-        increment_counter
-        (dest.memname + "Usage", wordsizetoBytes(ipcpkt->bytes_to_allocate));
+      auto to_send = make_routing_packet
+                     (setsourcetome_, received->source , ipcpkt);
 
-        auto to_send = make_routing_packet
-                       (setsourcetome_, received->source , ipcpkt);
+      wr_if->put(to_send);
 
-        cluster_local_switch_wr_if->put(to_send);
+    } else if (ipcpkt->RequestType.find("DEALLOCATE") !=std::string::npos) {
+      Deallocate(ipcpkt->Allocation,
+                 ipcpkt->tlm_address,
+                 ipcpkt->bytes_to_allocate);
     } else {
       std::cerr << "UNKNOWN MemoryManager COMMAND" << endl;
     }
   }
 }
 
-
-MemoryManager::tlm_addr_ MemoryManager::TlmAllocate(tlm_addr_ size_of_data) {
-  sc_process_handle this_process = sc_get_current_process_handle();
-  sc_object* parent = this_process.get_parent_object();
-  const char* name = parent->basename();
-
-  if ((addrcounter < VirtualMemMaxSize) &&
-      (size_of_data < (VirtualMemMaxSize-addrcounter))) {
-    // get size of data to allocate
-    double alloc_req = static_cast<float>(size_of_data)/static_cast<float>(32);
-    int count = 0;
-    int ret_addr = addrcounter;  // current free head of memory block
-    for (int i = addrcounter; i < (ceil(alloc_req) + addrcounter); i++) {
-      count++;
-    }
-    addrcounter = addrcounter + count;
-    return ret_addr;
-  } else {
-    std::cerr << "Allocator Ran out of Mem Max VM Addr Range: "
-    << (VirtualMemMaxSize-1) <<" Allocated upto addr: " << addrcounter
-    <<" Tried to allocate:" <<size_of_data << endl;
-    npu_error("Allocator-MemoryManager Ran out of Memory");
-  }
-}
-
 unsigned long MemoryManager::wordsizetoBytes(std::size_t wordsize) { //NOLINT
   return (unsigned long)ceil((float) wordsize / (float) 32);  // NOLINT
+}
+
+
+uint64_t
+MemoryManager::Allocate(tlm_addr_ bytes_to_allocate,
+                        std::string TypeofAllocation) {
+  auto result =  MemoryRegions[TypeofAllocation].allocate(bytes_to_allocate);
+  // cout<< "Allocate - "<<TypeofAllocation<<endl;
+  // MemoryRegions[TypeofAllocation].print();
+  return result;
+}
+bool MemoryManager::Deallocate(
+  std::string TypeofAllocation,
+  tlm_addr_ deaddr,
+  tlm_addr_ bytes_to_deallocate) {
+  return MemoryRegions[TypeofAllocation].deallocate
+                                          (deaddr, bytes_to_deallocate);
 }

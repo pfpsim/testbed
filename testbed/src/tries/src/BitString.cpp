@@ -1,3 +1,33 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 //
 //  BitString.cpp
 //  Trie Data Structure
@@ -59,7 +89,7 @@ BitString::BitString(const uint8_t* prefix, const int width) {
         int element = (int)prefix[i];
         (*this) = (*this) + BitString::intToBitString(element, 8);
     }
-    
+
 }
 
 /// =============================================================================
@@ -99,7 +129,7 @@ BitString& BitString::operator=(const char* arg) {
 
 BitString BitString::operator+(const BitString& arg) {
     BitString out = *this;
-    
+
     for (int i = 0; i < arg.size(); i++) {
         out.push_back(arg[i]);
     }
@@ -138,7 +168,7 @@ bool BitString::operator==(const std::string& arg) {
             return false;
         }
     }
-    
+
     bool match = true;
     for (int i = 0; i < arg.size(); i++) {
         if (arg[i] == '1') {
@@ -231,7 +261,7 @@ std::string BitString::toString() const {
     if (data.empty()) {
         return "";
     }
-    
+
     std::string s = "";
     for (int i = 0; i < data.size(); i++) {
         if (data[i] == 1) {
@@ -240,7 +270,7 @@ std::string BitString::toString() const {
             s.append("0");
         }
     }
-    
+
     return s;
 }
 
@@ -258,26 +288,26 @@ uint8_t* BitString::toUInt8(int *width) const {
     BitString temp;
     int numOfElements = ((int)data.size() + 7)/8;
     int desiredWidth = numOfElements * 8;
-    
+
     for (int i = 0; i < data.size(); i++) {
         temp.push_back(data[i]);
     }
-    
+
     for (int i = 0; i < desiredWidth - data.size(); i++) {
         temp.push_back(0);
     }
-    
+
     uint8_t *out = new uint8_t[numOfElements];
-    
+
     for (int i = 0; i < numOfElements; i++) {
         std::vector<bool>::const_iterator first = temp.data.begin() + (8*i);
         std::vector<bool>::const_iterator last = first + 8;
         BitString e1(first, last);
         out[i] = e1.toInt();
     }
-    
+
     (*width) = (int)data.size();
-    
+
     return out;
 }
 
@@ -331,21 +361,21 @@ void BitString::pop_back() {
 
 BitString BitString::substr(int startPos, int length) const {
     BitString out;
-    
+
     if (startPos >= data.size()) {
         throw "BitString::substr -> out of range";
     } else {
-        
+
         int outLength = length;
-        
+
         if ((startPos + length) > data.size() || length == -1) {
             outLength = (int)data.size() - startPos;
         }
-    
+
         for (int i = startPos; i < startPos + outLength; i++) {
             out.push_back(data[i]);
         }
-    
+
     return out;
     }
 }
@@ -427,13 +457,13 @@ BitString BitString::intToBitString(unsigned int arg, int numOfBits) {
             arg = arg/2;
         }
     }
-    
+
     BitString out;
-    
+
     for (auto i = temp.data.rbegin(); i != temp.data.rend(); i++) {
         out.push_back(*i);
     }
-    
+
     return out;
 }
 

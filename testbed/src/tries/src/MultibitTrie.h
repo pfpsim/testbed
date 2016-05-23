@@ -1,3 +1,33 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 //
 //  MultibitTrie.h
 //  Trie Data Structure
@@ -19,26 +49,26 @@ using namespace std;
 template <class T>
 class MultibitTrie : public Trie<T> {
 public:
-    
+
     // Constructor
     MultibitTrie(RoutingTableEntry<T> *iEntryArray, unsigned int iNumOfPrefixes, T iDefaultAction, int iDefaultActionSize, unsigned int iHeight = 4);
-    
+
     // Destructor
     virtual ~MultibitTrie();
-    
+
     // Update
     virtual void update(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, typename Trie<T>::Action iAction);
-    
+
     // Insert
     virtual void insert(BitString iPrefix, T iAction, int iActionSize);
-    
+
     // Remove
     virtual void remove(BitString iPrefix);
-    
+
     // Lookup
     virtual T exactPrefixMatch(BitString iPrefix) const;
     virtual T longestPrefixMatch(BitString iPrefix) const;
-    
+
 private:
     MultibitNode<T> *mRoot;
     unsigned int mRootStride;       // Number of bits for root level
@@ -46,14 +76,14 @@ private:
     PrefixTree<T> *mPrefixTree;     // Prefix Tree/ Unibit Trie to keep track of original prefixes
     T mDefaultAction;               // Default Action
     int mDefaultActionSize;         // Default Action Size
-    
+
     int Opt(UnibitNode<T> *iNode, int iLevels) const;
     int Opt(UnibitNode<T> *iNode, int iStride, int iLevels) const;
     int Height(UnibitNode<T> *iNode) const;
     int HeightHelper(UnibitNode<T> *iNode, int iNum) const;
     int MinIntIndex(int *wArray, int iSize) const;
     int MinInt(int *wArray, int iSize) const;
-    
+
 };
 
 //
@@ -80,13 +110,13 @@ MultibitTrie<T>::MultibitTrie(RoutingTableEntry<T> *iEntryArray, unsigned int iN
     for (int i = 0; i < iNumOfPrefixes; i++) {
         mPrefixTree->insert(iEntryArray[i].getData(), iEntryArray[i].getAction(), iEntryArray[i].getActionSize());
     }
-    
+
     // Find optimal root stride length
     mRootStride = Opt(mPrefixTree->getRoot(), mHeight);
-    
+
     // Build root node
     mRoot = new MultibitNode<T>[(int)pow(2, mRootStride)]();
-    
+
     // Build Multibit Trie
     for (int i = 0; i < iNumOfPrefixes; i++) {
         insert(iEntryArray[i].getData(), iEntryArray[i].getAction(), iEntryArray[i].getActionSize());
@@ -141,13 +171,13 @@ void MultibitTrie<T>::update(RoutingTableEntry<T> *iRoutingTable, int iRoutingTa
         }
         // Build Prefix Tree
         mPrefixTree = new PrefixTree<T>(iRoutingTable, iRoutingTableSize, mDefaultAction, mDefaultActionSize);
-        
+
         // Find optimal root stride length
         mRootStride = Opt(mPrefixTree->getRoot(), mHeight);
-        
+
         // Build root node
         mRoot = new MultibitNode<T>[(int)pow(2, mRootStride)]();
-        
+
         // Build Multibit Trie
         for (int i = 0; i < iRoutingTableSize; i++) {
             insert(iRoutingTable[i].getData(), iRoutingTable[i].getAction(), iRoutingTable[i].getActionSize());
@@ -167,9 +197,9 @@ void MultibitTrie<T>::insert(BitString iPrefix, T iAction, int iActionSize) {
     if (!mPrefixTree) {
         mPrefixTree = new PrefixTree<T>(mDefaultAction, mDefaultActionSize);
     }
-    
+
     mPrefixTree->insert(iPrefix, iAction, iActionSize);
-    
+
     // Check root
     if (!mRoot) {
         if (mRootStride == 0) {
@@ -177,7 +207,7 @@ void MultibitTrie<T>::insert(BitString iPrefix, T iAction, int iActionSize) {
         }
         mRoot = new MultibitNode<T>[(int)(pow(2, mRootStride))];
     }
-    
+
     // Insert into Multibit Tree
     // Start at root
     int wPos = 0;
@@ -308,7 +338,7 @@ void MultibitTrie<T>::remove(BitString iPrefix) {
                 }
                 wLongestMatchPrefixLength = (int)wLongestPrefix.size();
             }
-            
+
             int wNumExpansions = (int)pow(2, (wStride - (int)wSubString.size()));
             for (int i = 0; i < wNumExpansions; i++) {
                 BitString wExpandedPrefix = wSubString + BitString::intToBitString(i, wStride - (int)wSubString.size());
@@ -318,7 +348,7 @@ void MultibitTrie<T>::remove(BitString iPrefix) {
                     mRoot[wIndex].setLength(wLongestMatchPrefixLength);
                 }
             }
-            
+
             if (wLongestMatchAction == mDefaultAction) {
                 bool wFinishFlag = false;
                 for (int i = 0; i < pow(2.0, wStride); i++) {
@@ -443,7 +473,7 @@ T MultibitTrie<T>::exactPrefixMatch(BitString iPrefix) const {
         int wStride = 0;
         MultibitNode<T> *wNode = 0;
         int wPos = 0;
-        
+
         // Start at root
         BitString wSubString = iPrefix.substr(0, mRootStride);
         int wIndex = wSubString.toInt();
@@ -488,7 +518,7 @@ T MultibitTrie<T>::longestPrefixMatch(BitString iPrefix) const {
         int wStride = 0;
         MultibitNode<T> *wNode = 0;
         int wPos = 0;
-        
+
         // Start at root
         if (mRootStride > iPrefix.size()) {
             // Check for expanded prefix??
@@ -503,7 +533,7 @@ T MultibitTrie<T>::longestPrefixMatch(BitString iPrefix) const {
             wBestMatch = mDefaultAction;
         }
         wPos = mRootStride;
-        
+
         // Traverse the trie
         while (wPos < iPrefix.size() || wNode == 0) {
             wStride = wNode->getStride();

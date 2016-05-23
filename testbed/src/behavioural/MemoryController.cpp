@@ -1,27 +1,57 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "./MemoryController.h"
 #include <string>
 #include "common/RoutingPacket.h"
-
+#include "common/routingdefs.h"
 // #define debug_tlm_mem_transaction 1
 MemoryController::MemoryController(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):MemoryControllerSIM(nm, parent, configfile) {  // NOLINT(whitespace/line_length)
   // Search in MemoryMap for itself and get its own parameters
-  LoadMemoryMAPConfig(CONFIGROOT+"memorymap_48_12edrams.cfg");
   sc_object* parent_ = this->get_parent_object();
   std::string parentname = parent_->basename();
   std::string modulename = parentname;
-  int count = memnames_map.size();
-  for (int i = 0; i < count; i++) {
-    if (memnames_map.at(i).find(modulename) != std::string::npos) {
-      sc_time rd_lat(mem_rd_latecy_map.at(i), SC_NS);
-      sc_time wr_lat(mem_wr_latency_map.at(i), SC_NS);
-      RD_LATENCY = rd_lat;
-      WR_LATENCY = wr_lat;
-    }
-  }
+  int rdlt = GetParameter("ReadLatency").template get<int>();
+  int wrlt = GetParameter("WriteLatency").template get<int>();
+
+  sc_time rd_lat(rdlt, SC_NS);
+  sc_time wr_lat(wrlt, SC_NS);
+  int mem_size = GetParameter("Capacity").template get<int>();
+  RD_LATENCY = rd_lat;
+  WR_LATENCY = wr_lat;
+
   std::string memname = modulename;
   memname_ = memname;
   if (memname.find("ed") != std::string::npos) {
-    setsourcetome_ = "cluster_0."+memname;
+    std::string clustername = GetParent()->GetParent()->module_name();
+    setsourcetome_ = clustername+"."+memname;
   } else {
     setsourcetome_ = memname;
   }
@@ -63,7 +93,7 @@ void MemoryController::MemoryControllerThread(std::size_t thread_id) {
         ipcpkt->bytes_to_allocate = tlm_read(ipcpkt->tlm_address);
 
         // Time to reply the request figure out who sent it
-        if (ipcpkt_SentFrom.find("core_") != std::string::npos) {
+        if (ipcpkt_SentFrom.find(core_prefix) != std::string::npos) {
           // Check if this is an On Chip or Off chip
           if (setsourcetome_.find("ed") != std::string::npos) {
             // Set extracted Local teu name from tecx.teux to destination
@@ -83,7 +113,7 @@ void MemoryController::MemoryControllerThread(std::size_t thread_id) {
       } else {
         npu_error("TLMCRTLR IPC_MEM Invalid command in "+memname_);
       }
-    } else if (unbox_routing_packet<>(received_tr)->source.find("core_")
+    } else if (unbox_routing_packet<>(received_tr)->source.find(core_prefix)
                != std::string::npos) {
       if (auto received_pd = try_unbox_routing_packet
                              <PacketDescriptor>(received_tr)) {

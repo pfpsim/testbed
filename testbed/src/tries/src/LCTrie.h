@@ -1,3 +1,33 @@
+/*
+ * simple-npu: Example NPU simulation model using the PFPSim Framework
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 //
 //  LCTrie.h
 //  Trie Data Structure
@@ -26,24 +56,24 @@ static int NO_PREFIX = -1; // empty prefix pointer
 template <class T>
 class LCTrie : public Trie<T> {
 public:
-    
+
     // Constructor
     LCTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, T iDefaultAction, int iDefaultActionSize, double iFillFactor, int iRootBranchFactor);
     LCTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, T iDefaultAction, int iDefaultActionSize);
-    
+
     // Destructor
     virtual ~LCTrie();
-    
+
     // Update
     virtual void update(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, typename Trie<T>::Action iAction);
-    
+
     // Lookup
     T exactPrefixMatch(BitString iPrefix) const;
     T longestPrefixMatch(BitString iPrefix) const;
-    
+
     // Print Trie
     void printTrie() const;
-    
+
 private:
     LCNode *mTrie;                          // Main LC-Trie Structure
     int mTrieSize;                          // Size of LC-Trie
@@ -58,7 +88,7 @@ private:
     int mRootBranchingFactor;               // Branching Factor of Root
     int mNextFree;                          // Index of Next Free Element in LC-Trie
     T mDefaultAction;                       // Default Action
-    
+
     void constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, double iFillFactor, int iRootBranchFactor);
     void build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie);
     void buildActionTable(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize);
@@ -69,7 +99,7 @@ private:
     int bestPrefixMatch(int iPrefix, int iPos, BitString iBitPat, int iBranch);
     void traverse(LCNode *iRoot, int iDepth, int *iDepths);
     int extract(int iPos, int iBranch, BitString iString) const;
-    
+
 };
 
 //
@@ -99,20 +129,20 @@ LCTrie<T>::LCTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, T 
 
 template <class T>
 void LCTrie<T>::constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSize, double iFillFactor, int iRootBranchFactor) {
-    
+
     if (iFillFactor < 0.1 || iFillFactor > 1.0 || iRootBranchFactor < 0 || iRootBranchFactor > 20) {
         // throw exception
     }
-    
+
     int wSize; // Size of entry array after duplicate removal
-    
+
     mFillFactor = iFillFactor;
     mRootBranchingFactor = iRootBranchFactor;
-    
+
     buildActionTable(iRoutingTable, iRoutingTableSize);
-    
+
     std::sort(iRoutingTable, iRoutingTable + iRoutingTableSize, RoutingTableEntry<T>::compareEntries);
-    
+
     // Remove duplicates
     wSize = iRoutingTableSize > 0 ? 1 : 0;
     for (int i = 1; i < iRoutingTableSize; i++) {
@@ -120,11 +150,11 @@ void LCTrie<T>::constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingT
             iRoutingTable[wSize++] = iRoutingTable[i];
         }
     }
-    
+
     /*for (int i = 0; i < iRoutingTableSize; i++) {
      cout << "Prefix: " << iRoutingTable[i].getData() << ", Next Hop: " << iRoutingTable[i].getAction() << endl;
      }*/
-    
+
     // We first build a big data structure and afterwards,
     // when we know the size, we store it in a more compact format.
     // The number of internal nodes in the tree can't be larger
@@ -134,13 +164,13 @@ void LCTrie<T>::constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingT
     LCNode *wLCTrie = new LCNode[wSize + (int) (wSize/mFillFactor) + (1<<mRootBranchingFactor)];
     BaseVectorEntry *wBaseVector = new BaseVectorEntry[wSize]();
     PrefixVectorEntry *wPrefixVector = new PrefixVectorEntry[wSize]();
-    
+
     // Initialize a temporary array of prefix pointers
     int *wPreTemp = new int[wSize];
     for (int i = 0; i < wSize; i++) {
         wPreTemp[i] = NO_PREFIX;
     }
-    
+
     // Go through the entries and put the prefixes in prefix vector
     // and the rest of the strings in base vector
     int wNBases = 0; // This many entries ended up in the base vector
@@ -164,7 +194,7 @@ void LCTrie<T>::constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingT
             delete wBTemp;
         }
     }
-    
+
     // At this point we know how much memory to allocate
     // for the base vector and the prefix vector.
     mBaseVector = new BaseVectorEntry[wNBases];
@@ -181,11 +211,11 @@ void LCTrie<T>::constructTrie(RoutingTableEntry<T> *iRoutingTable, int iRoutingT
         mPrefixVector[i] = wPrefixVector[i];
         //cout << mPrefixVector[i].getLength() << ", " << mPrefixVector[i].getPrefixPtr() << ", " << mPrefixVector[i].getActionPtr() << endl;
     }
-    
+
     // Build the trie structure
     mNextFree = 1;
     build(0, 0, wNBases, 0, wLCTrie);
-    
+
     // Allocate memory and move the tree into its final place.
     mTrie = new LCNode[mNextFree];
     for (int i = 0; i < mNextFree; i++) {
@@ -233,7 +263,7 @@ void LCTrie<T>::build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie
     int wBranch;
     int wNewPrefix;
     int wAdr;
-    
+
     // only one element, this is a leaf
     if (iNum == 1) {
         iTrie[iPos].setBranchFactor(0);
@@ -241,25 +271,25 @@ void LCTrie<T>::build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie
         iTrie[iPos].setLeftNodePos(iFirst); // branch and skip are 0
         return;
     }
-    
+
     // compute skip value
     wNewPrefix = computeNewPrefix(iPrefix, iFirst, iNum);
-    
+
     // compute branching
     if (mRootBranchingFactor > 0 && iPrefix == 0 && iFirst == 0) {
         wBranch = mRootBranchingFactor; // fixed branching at root
     } else {
         wBranch = computeBranch(wNewPrefix, iFirst, iNum);
     }
-    
+
     // address of leftmost child
     wAdr = mNextFree;
     iTrie[iPos].setBranchFactor(wBranch);
     iTrie[iPos].setSkip(wNewPrefix - iPrefix);
     iTrie[iPos].setLeftNodePos(wAdr);
-    
+
     mNextFree += pow(2.0, (double)wBranch);
-    
+
     // Build the subtrees
     int p = iFirst; // position in base array
     for (int bitpat = 0; bitpat < pow(2.0, (double)wBranch); bitpat++) {
@@ -299,7 +329,7 @@ void LCTrie<T>::build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie
                 break;
             }
         }
-        
+
         if (k == 0) {
             // The leaf should have a pointer either to p-1 or p,
             // whichever has the longest matching prefix
@@ -310,13 +340,13 @@ void LCTrie<T>::build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie
             if (p < iFirst + iNum) {
                 match2 = bestPrefixMatch(wNewPrefix, p, (BitString::intToBitString(bitpat, ADR_SIZE)), wBranch);
             }
-            
+
             if ((match1 > match2 && p > iFirst) || p == iFirst + iNum) {
                 build(wNewPrefix + wBranch, p - 1, 1, wAdr + bitpat, iTrie);
             } else {
                 build(wNewPrefix + wBranch, p, 1, wAdr + bitpat, iTrie);
             }
-            
+
         } else if (k == 1 && mBaseVector[p].getLength() - wNewPrefix < wBranch) {
             int bits = wBranch - mBaseVector[p].getLength() + wNewPrefix;
             for (int i = bitpat; i < bitpat + (1<<bits); i++)
@@ -330,7 +360,7 @@ void LCTrie<T>::build(int iPrefix, int iFirst, int iNum, int iPos, LCNode *iTrie
                 p += mBaseVectorSize - wTempBaseVectorSize;
             }
         }
-        
+
         p += k;
     }
 }
@@ -368,7 +398,7 @@ int LCTrie<T>::computeBranch(int iPrefix, int iFirst, int iNum) {
     // Always use branching factor 2 for two elements
     if (iNum == 2)
         return 1;
-    
+
     // Compute the number of bits b that can be used for branching.
     // We have at least two branches. Therefore we start the search
     // at b = 2, i.e. 2^b = 4 branches.
@@ -416,10 +446,10 @@ void LCTrie<T>::buildActionTable(RoutingTableEntry<T> *iRoutingTable, int iRouti
         wNextTemp[i] = iRoutingTable[i].getAction();
         wSize += iRoutingTable[i].getActionSize();
     }
-    
+
     // Sort it
     std::sort(wNextTemp, wNextTemp + iRoutingTableSize, std::less<T>());
-    
+
     // Remove duplicates and save them in a vector
     int wCount = iRoutingTableSize > 0 ? 1 : 0;
     vector<T> wDuplicates;
@@ -430,7 +460,7 @@ void LCTrie<T>::buildActionTable(RoutingTableEntry<T> *iRoutingTable, int iRouti
             wDuplicates.push_back(wNextTemp[i]);
         }
     }
-    
+
     // Find size of duplicates and remove from size total
     for (int i = 0; i < wDuplicates.size(); i++) {
         for (int j = 0; j < iRoutingTableSize; j++) {
@@ -440,7 +470,7 @@ void LCTrie<T>::buildActionTable(RoutingTableEntry<T> *iRoutingTable, int iRouti
             }
         }
     }
-    
+
     // Move the elements to an array of proper size
     T *wAction = new T[wCount];
     for (int i = 0; i < wCount; i++) {
@@ -480,9 +510,9 @@ void LCTrie<T>::update(RoutingTableEntry<T> *iRoutingTable, int iRoutingTableSiz
         mBaseVectorSize = 0;
         mPrefixVectorSize = 0;
         mNumActionTableElements = 0;
-        
+
         constructTrie(iRoutingTable, iRoutingTableSize, mFillFactor, mRootBranchingFactor);
-        
+
     } else if (iAction == Trie<T>::Add) {
         throw "Unable to insert prefixes into LC-Trie. It can only be reconstructed.";
     } else {
@@ -516,13 +546,13 @@ T LCTrie<T>::exactPrefixMatch(BitString iPrefix) const {
         wBranch = wNode->getBranchFactor();
         wAdr = wNode->getLeftNodePos();
     }
-    
+
     // Was this a hit?
     //if(mBaseVector[wAdr].getPrefix() == iPrefix.substr(0, wPos)) {
     if(mBaseVector[wAdr].getPrefix() == iPrefix) {
         return mActionTable[mBaseVector[wAdr].getActionPtr()];
     }
-    
+
     // If not, look in the prefix tree
     int wPreAdr = mBaseVector[wAdr].getPrefixTablePtr();
     while (wPreAdr != NO_PREFIX) {
@@ -531,7 +561,7 @@ T LCTrie<T>::exactPrefixMatch(BitString iPrefix) const {
         }
         wPreAdr = mPrefixVector[wPreAdr].getPrefixPtr();
     }
-    
+
     return mDefaultAction; // not found
 }
 
@@ -561,12 +591,12 @@ T LCTrie<T>::longestPrefixMatch(BitString iPrefix) const {
         wBranch = wNode->getBranchFactor();
         wAdr = wNode->getLeftNodePos();
     }
-    
+
     // Was this a hit?
     if(mBaseVector[wAdr].getPrefix() == iPrefix.substr(0, wPos)) {
         return mActionTable[mBaseVector[wAdr].getActionPtr()];
     }
-    
+
     // If not, look in the prefix tree
     int wPreAdr = mBaseVector[wAdr].getPrefixTablePtr();
     while (wPreAdr != NO_PREFIX) {
@@ -575,7 +605,7 @@ T LCTrie<T>::longestPrefixMatch(BitString iPrefix) const {
         }
         wPreAdr = mPrefixVector[wPreAdr].getPrefixPtr();
     }
-    
+
     //Look for best match
     wPreAdr = mBaseVector[wAdr].getPrefixTablePtr();
     while (wPreAdr != NO_PREFIX) {
@@ -584,7 +614,7 @@ T LCTrie<T>::longestPrefixMatch(BitString iPrefix) const {
         }
         wPreAdr = mPrefixVector[wPreAdr].getPrefixPtr();
     }
-    
+
     return mDefaultAction; // not found
 }
 
@@ -637,7 +667,7 @@ int LCTrie<T>::bestPrefixMatch(int iPrefix, int iPos, BitString iBitPat, int iBr
 template <class T>
 int LCTrie<T>::binarySearch(T x, T *v, int size) {
     int low, high, mid;
-    
+
     low = 0;
     high = size;
     while (low <= high) {
@@ -648,7 +678,7 @@ int LCTrie<T>::binarySearch(T x, T *v, int size) {
             low = mid + 1;
         else
             return mid;
-        
+
     }
     return -1;
 }
@@ -666,7 +696,7 @@ int LCTrie<T>::linearSearch(T x, T *v, int size) {
             return i;
         }
     }
-    
+
     return -1;
 }
 
@@ -698,7 +728,7 @@ void LCTrie<T>::printTrie() const {
     cout << "ActionTable:" << endl;;
     for (int i = 0;  i < mNumActionTableElements; i++)
         cout << "  " << i << " " << mActionTable[i] << endl;
-    
+
     cout << "PrefixVector (length, prefix, nexthop):" << endl;
     for (int i = 0;  i < mPrefixVectorSize; i++) {
         cout << "  " << i << " " << mPrefixVector[i].getLength();
@@ -709,7 +739,7 @@ void LCTrie<T>::printTrie() const {
         }
         cout << " "  << mPrefixVector[i].getActionPtr() << endl;
     }
-    
+
     cout << "BaseVector (prefix, nexthop, length):" << endl;
     for (int i = 0;  i < mBaseVectorSize; i++) {
         cout << "  " << i;
@@ -722,7 +752,7 @@ void LCTrie<T>::printTrie() const {
         cout << " " << mBaseVector[i].getLength();
         cout << " " << mBaseVector[i].getPrefix() << endl;
     }
-    
+
     cout << "Trie (branch, skip, adr):" << endl;
     for (int i = 0; i < mTrieSize; i++){
         LCNode *wNode = &mTrie[i];

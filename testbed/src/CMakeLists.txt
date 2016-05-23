@@ -1,9 +1,9 @@
 cmake_minimum_required (VERSION 2.8.7)
 set(ProjectName
-testbed
+  "testbed"
 )
 set(Executable
-testbed-sim
+  "testbed-sim"
 )
 
 include(ExternalProject)
@@ -94,7 +94,7 @@ CHECK_CXX_COMPILER_FLAG ("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG ("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   if (COMPILER_SUPPORTS_CXX11)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fmessage-length=0 -MMD -MP -Wno-reorder -Wno-return-type -Wno-unused -Wno-overloaded-virtual -frtti")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fmessage-length=0 -MMD -MP -Wno-reorder -Wno-return-type -Wno-unused -Wno-overloaded-virtual -Wno-tautological-compare -frtti")
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
       set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -fcolor-diagnostics")
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
