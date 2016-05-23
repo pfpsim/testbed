@@ -1,3 +1,33 @@
+/*
+ * testbed: Simulation environment for PFPSim Framework models
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #ifndef BEHAVIOURAL_TCPCLIENT_H_
 #define BEHAVIOURAL_TCPCLIENT_H_
 #include <string>
@@ -35,14 +65,14 @@ class TCPClient: public TCPClientSIM {
   void scheduler_thread();
 
   // Behavioral methods
-  void establishConnection(std::string clientID);
+  void requestServerInstance(std::string clientID);
+  void establishConnection(std::string clientID = NULL, std::string serverID = NULL);
   void requestFile();
   void registerFile();
   void processFile();
   void teardownConnection();
 
  private:
-  std::ofstream outlog;
   sc_event activate_client_instance_event;
   std::map<std::string, std::string> localMap;
   std::shared_ptr<PcapLogger> pcapLogger;

@@ -1,4 +1,16 @@
+# service_request
+insert_entry service_request 10.1.0.0/16  10000'2 assign_server 17.244.0.0
+insert_entry service_request 11.1.0.0/16  10001'2 assign_server 47.244.0.0
+insert_entry service_request 12.1.0.0/16  10002'2 assign_server 87.244.0.0
+insert_entry service_request 13.1.0.0/16  10003'2 assign_server 117.244.0.0
+insert_entry service_request 14.1.0.0/16  10004'2 assign_server 147.244.0.0
+
 # IPv4 LPM
+#insert_entry ipv4_lpm 10.1.0.0/16      set_nhop 11.1.0.0   2
+#insert_entry ipv4_lpm 11.1.0.0/16      set_nhop 11.4.0.0   4
+#insert_entry ipv4_lpm 12.1.0.0/16      set_nhop 11.8.0.0   6
+#insert_entry ipv4_lpm 13.1.0.0/16      set_nhop 11.11.0.0  8
+#insert_entry ipv4_lpm 14.1.0.0/16      set_nhop 11.14.0.0  10
 insert_entry ipv4_lpm 117.45.24.21/16      set_nhop 10.1.0.0   1
 insert_entry ipv4_lpm 17.244.34.233/16     set_nhop 11.1.0.0   2
 insert_entry ipv4_lpm 127.45.24.21/16      set_nhop 10.2.0.0   1
@@ -25,7 +37,12 @@ insert_entry ipv4_lpm 227.45.24.21/16      set_nhop 10.12.0.0  7
 insert_entry ipv4_lpm 127.244.34.233/16    set_nhop 11.12.0.0  8
 insert_entry ipv4_lpm 237.45.24.21/16      set_nhop 10.13.0.0  7
 insert_entry ipv4_lpm 137.244.34.233/16    set_nhop 11.13.0.0  8
-
+insert_entry ipv4_lpm 247.45.24.21/16      set_nhop 10.14.0.0  9
+insert_entry ipv4_lpm 147.244.34.233/16    set_nhop 11.14.0.0  10
+insert_entry ipv4_lpm 248.45.24.21/16      set_nhop 10.15.0.0  9
+insert_entry ipv4_lpm 157.244.34.233/16    set_nhop 11.15.0.0  10
+insert_entry ipv4_lpm 249.45.24.21/16      set_nhop 10.16.0.0  9
+insert_entry ipv4_lpm 167.244.34.233/16    set_nhop 11.16.0.0  10
 
 # forward
 insert_entry forward 10.1.0.0 set_dmac bb:bb:bb:bb:bb:00
@@ -49,18 +66,26 @@ insert_entry forward 11.9.0.0 set_dmac bb:bb:bb:bb:bb:11
 insert_entry forward 10.10.0.0 set_dmac bb:bb:bb:bb:bb:12
 insert_entry forward 11.10.0.0 set_dmac bb:bb:bb:bb:bb:13
 insert_entry forward 10.11.0.0 set_dmac bb:bb:bb:bb:bb:14
-insert_entry forward 11.11.0.0 set_dmac bb:bb:bb:bb:bb:14
-insert_entry forward 10.12.0.0 set_dmac bb:bb:bb:bb:bb:15
-insert_entry forward 11.12.0.0 set_dmac bb:bb:bb:bb:bb:15
-insert_entry forward 10.13.0.0 set_dmac bb:bb:bb:bb:bb:16
-insert_entry forward 11.13.0.0 set_dmac bb:bb:bb:bb:bb:16
+insert_entry forward 11.11.0.0 set_dmac bb:bb:bb:bb:bb:15
+insert_entry forward 10.12.0.0 set_dmac bb:bb:bb:bb:bb:16
+insert_entry forward 11.12.0.0 set_dmac bb:bb:bb:bb:bb:17
+insert_entry forward 10.13.0.0 set_dmac bb:bb:bb:bb:bb:18
+insert_entry forward 11.13.0.0 set_dmac bb:bb:bb:bb:bb:19
+insert_entry forward 10.14.0.0 set_dmac bb:bb:bb:bb:bb:1a
+insert_entry forward 11.14.0.0 set_dmac bb:bb:bb:bb:bb:1b
+insert_entry forward 10.15.0.0 set_dmac bb:bb:bb:bb:bb:1c
+insert_entry forward 11.15.0.0 set_dmac bb:bb:bb:bb:bb:1d
+insert_entry forward 10.16.0.0 set_dmac bb:bb:bb:bb:bb:1e
+insert_entry forward 11.16.0.0 set_dmac bb:bb:bb:bb:bb:1f
 
 # send_frame
-insert_entry send_frame 1'2 rewrite_mac aa:aa:aa:aa:aa:00
-insert_entry send_frame 2'2 rewrite_mac aa:aa:aa:aa:aa:01
-insert_entry send_frame 3'2 rewrite_mac aa:aa:aa:aa:aa:02
-insert_entry send_frame 4'2 rewrite_mac aa:aa:aa:aa:aa:03
-insert_entry send_frame 5'2 rewrite_mac aa:aa:aa:aa:aa:04
-insert_entry send_frame 6'2 rewrite_mac aa:aa:aa:aa:aa:05
-insert_entry send_frame 7'2 rewrite_mac aa:aa:aa:aa:aa:06
-insert_entry send_frame 8'2 rewrite_mac aa:aa:aa:aa:aa:07
+insert_entry send_frame 1'2  rewrite_mac aa:aa:aa:aa:aa:00
+insert_entry send_frame 2'2  rewrite_mac aa:aa:aa:aa:aa:01
+insert_entry send_frame 3'2  rewrite_mac aa:aa:aa:aa:aa:02
+insert_entry send_frame 4'2  rewrite_mac aa:aa:aa:aa:aa:03
+insert_entry send_frame 5'2  rewrite_mac aa:aa:aa:aa:aa:04
+insert_entry send_frame 6'2  rewrite_mac aa:aa:aa:aa:aa:05
+insert_entry send_frame 7'2  rewrite_mac aa:aa:aa:aa:aa:06
+insert_entry send_frame 8'2  rewrite_mac aa:aa:aa:aa:aa:07
+insert_entry send_frame 9'2  rewrite_mac aa:aa:aa:aa:aa:08
+insert_entry send_frame 10'2 rewrite_mac aa:aa:aa:aa:aa:09

@@ -1,3 +1,33 @@
+/*
+ * testbed: Simulation environment for PFPSim Framework models
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include "TestbedUtilities.h"
 #include <utility>
 #include <string>
@@ -14,7 +44,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     ncs.node_type = configMap.find("type")->second;
     if (ncs.node_type.compare("client") != 0) {
       std::cerr << "Incorrect config file " << configFile
-        << " used for client configuration!" << endl;
+        << " used for client configuration!" << std::endl;
       assert(false);
     }
 
@@ -25,7 +55,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     if (tempvec.size() < 2) {
       std:cerr << configFile << ": Incorrect simTime specified! Usage."
       <<" \"12 SC_SEC\" "
-      <<endl;
+      <<std::endl;
       assert(false);
     }
 
@@ -45,7 +75,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       std::cerr << configFile << ": Server/ Client Unknown unit for delay "
         << "specified!"
         << " \nSupported values are: SC_SEC, SC_MS, SC_US, SC_NS, SC_PS, SC_FS"
-        << endl;
+        << std::endl;
       assert(false);
     }
     tempstr = configMap.find("archive")->second;
@@ -59,7 +89,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
 
     ncs.list = getStringVector(tempstr);
     if (ncs.list.size() == 0) {
-      std::cerr << "No headers specified!" << endl;
+      std::cerr << "No headers specified!" << std::endl;
       assert(false);
     }
     tempstr = configMap.find("delays")->second;
@@ -89,7 +119,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       } else {
         std::cerr << "Server/ Client Unknown unit for delay specified! \n"
             << "Supported values are: SC_SEC, SC_MS, SC_US,"
-            << "SC_NS, SC_PS, SC_FS" << endl;
+            << "SC_NS, SC_PS, SC_FS" << std::endl;
         assert(false);
       }
     }
@@ -112,9 +142,10 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     tempvec.clear();
 
     int headerCount = stoi(configMap.find("virtualInstances")->second);
-    std::vector<std::string> clientIPs, serverIPs;
+    std::vector<std::string> clientIPs;  // , serverIPs;
+    std::string serverIP;
 
-    tempstr = configMap.find("cl_dnspolicy")->second;
+    tempstr = configMap.find("dnspolicy")->second;
     tempvec = getStringVector(tempstr);
     std::string cl_dnsdist = tempvec.at(0);
     double cl_dnsp1, cl_dnsp2;
@@ -130,8 +161,9 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     tempvec.clear();
 
     std::map<int, int> cl_dnsfreq;
-    tempstr = configMap.find("cl_dnsmsq")->second;
+    tempstr = configMap.find("dnsmsq")->second;
     tempvec = getStringVector(tempstr);
+
     int rnum = -1;
     for (int index = 0; index < headerCount; index++) {
       if (cl_dnsdist.compare("round-robin") == 0) {
@@ -154,10 +186,11 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       // mask index: it->first
       // mask freq : it->second
       std::vector<std::string> ips;
-      ips = getIPv4List(tempvec.at(it->first), it->second);
+      int initIndex = 1;
+      ips = getIPv4List(tempvec.at(it->first), it->second, initIndex);
       if (ips.size() < it->second) {
         std::cerr << configFile << ": Unable to create sufficient clientIPs to "
-        << "satisfy the configured dns policy!" << endl;
+        << "satisfy the configured dns policy!" << std::endl;
         assert(false);
       }
       for (std::string tempip : ips) {
@@ -167,6 +200,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     }
     tempvec.clear();
 
+/*
     tempstr = configMap.find("se_dnspolicy")->second;
     tempvec = getStringVector(tempstr);
     std::string se_dnsdist = tempvec.at(0);
@@ -202,6 +236,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
         se_dnsfreq[rnum]++;
       }
     }
+
     for (std::map<int, int>::iterator it = se_dnsfreq.begin();
       it != se_dnsfreq.end(); ++it) {
       // mask index: it->first
@@ -211,7 +246,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       if (ips.size() < it->second) {
         std::cerr << configFile
         << ": Unable to create sufficient serverIPs to satisfy"
-        << "the configured dns policy!" << endl;
+        << "the configured dns policy!" << std::endl;
         assert(false);
       }
       for (std::string tempip : ips) {
@@ -219,6 +254,9 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       }
       ips.clear();
     }
+*/
+    serverIP = configMap.find("dnsserver")->second;
+
     tempvec.clear();
     for (int index = 0; index < headerCount; index++) {
       std::vector<uint8_t> header;
@@ -265,19 +303,19 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           }
           ip_f.ip_sum = 0;
 
-          std::string ipsrc, ipdst;
+          std::string ipsrc;  // , ipdst;
           // serverIPs, clientIPs
-          ipdst = serverIPs.at(index);
+          // ipdst = serverIPs.at(index);
           ipsrc = clientIPs.at(index);
 
-          if (inet_aton(ipdst.c_str(), &ip_f.ip_dst) == 0) {
-            std::cerr << "We got an invalid IP address! Dst: " << ipdst
-                << endl;
+          if (inet_aton(serverIP.c_str(), &ip_f.ip_dst) == 0) {
+            std::cerr << "We got an invalid IP address - 01! Server addr: "
+              << serverIP << std::endl;
             assert(false);
           }
           if (inet_aton(ipsrc.c_str(), &ip_f.ip_src) == 0) {
-            std::cerr << "We got an invalid IP address! Src: " << ipsrc
-                << endl;
+            std::cerr << "We got an invalid IP address - 02! Src: " << ipsrc
+                << std::endl;
             assert(false);
           }
 
@@ -286,19 +324,10 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
         } else if (ncs.list[nhdr].compare("tcp_t") == 0) {
           struct tcphdr tcp_f;
           std::string strport = configMap.find("sport")->second;
-          uint16_t port;
-          if (strport.compare("random") == 0) {
-            port = getRandomNum(10000, 50000, "uniform");
-          } else {
-            port = (uint16_t) stoi(strport);
-          }
+          uint16_t port = (uint16_t) stoi(strport);
           tcp_f.th_sport = htons(port);
           strport = configMap.find("dport")->second;
-          if (strport.compare("random") == 0) {
-            port = getRandomNum(10000, 50000, "uniform");
-          } else {
-            port = (uint16_t) stoi(strport);
-          }
+          port = (uint16_t) stoi(strport);
           tcp_f.th_dport = htons(port);
           tcp_f.th_seq = 0;
           tcp_f.th_ack = 0;
@@ -315,19 +344,10 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
         } else if (ncs.list[nhdr].compare("udp_t") == 0) {
           struct udphdr udp_f;
           std::string strport = configMap.find("sport")->second;
-          uint16_t port;
-          if (strport.compare("random") == 0) {
-            port = getRandomNum(10000, 50000, "uniform");
-          } else {
-            port = (uint16_t) stoi(strport);
-          }
+          uint16_t port = (uint16_t) stoi(strport);
           udp_f.uh_sport = htons(port);
           strport = configMap.find("dport")->second;
-          if (strport.compare("random") == 0) {
-            port = getRandomNum(10000, 50000, "uniform");
-          } else {
-            port = (uint16_t) stoi(strport);
-          }
+          port = (uint16_t) stoi(strport);
           udp_f.uh_dport = htons(port);
           udp_f.uh_ulen = 0; /* udp length */
           udp_f.uh_sum = 0; /* udp checksum */
@@ -342,7 +362,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       ncs.header_data.push_back(header);
     }
   } catch (std::exception &e) {
-    std::cerr << "Exception while parsing client/server nodes!" << endl;
+    std::cerr << "Exception while parsing client/server nodes!" << std::endl;
     assert(false);
   }
   return ncs;
@@ -356,7 +376,7 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
     ncs.node_type = configMap.find("type")->second;
     if (ncs.node_type.compare("server") != 0) {
       std::cerr << "Incorrect config file " << configFile
-        << " used for server configuration!" << endl;
+        << " used for server configuration!" << std::endl;
       assert(false);
     }
     tempstr = configMap.find("archive")->second;
@@ -368,7 +388,7 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
     tempstr = configMap.find("headers")->second;
     ncs.list = getStringVector(tempstr);
     if (ncs.list.size() == 0) {
-      std::cerr << "No headers specified!" << endl;
+      std::cerr << "No headers specified!" << std::endl;
       assert(false);
     }
     tempvec.clear();
@@ -424,6 +444,27 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
       }
       tempvec.clear();
     }
+
+    tempstr = configMap.find("dnspolicy")->second;
+    tempvec = getStringVector(tempstr);
+    ncs.prefixes.distribution.type = tempvec.at(0);
+
+    if (tempvec.size() < 2) {
+      getDefaultDistributionParameters(ncs.prefixes.distribution.type,
+          &ncs.prefixes.distribution.param1,
+          &ncs.prefixes.distribution.param2);
+    } else if (tempvec.size() < 3) {
+      ncs.prefixes.distribution.param1 = stod(tempvec.at(1));
+      ncs.prefixes.distribution.param2 = 0;
+    } else {
+      ncs.prefixes.distribution.param1 = stod(tempvec.at(1));
+      ncs.prefixes.distribution.param2 = stod(tempvec.at(2));
+    }
+    tempvec.clear();
+
+    tempstr = configMap.find("dnsmsq")->second;
+    ncs.prefixes.prefix_values = getStringVector(tempstr);
+
     tempstr = configMap.find("sizeDist")->second;
     tempvec = getStringVector(tempstr);
     ncs.fsize.distribution.type = tempvec.at(0);
@@ -441,7 +482,7 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
     tempvec.clear();
   } catch (std::exception &e) {
     std::cerr << "Exception while parsing server nodes! Config file: "
-      << configFile << endl;
+      << configFile << std::endl;
     assert(false);
   }
   return ncs;
@@ -455,20 +496,6 @@ std::vector<std::string> TestbedUtilities::getStringVector
   std::istream_iterator<std::string> end;
   strVec.insert(strVec.begin(), begin, end);
   return strVec;
-}
-
-uint8_t TestbedUtilities::stringTouint16(const std::string& input) {
-  std::string lut = "0123456789ABCDEF";
-
-  char fc = toupper(input[0]);
-  char sc = toupper(input[1]);
-
-  int fn = lut.find(fc);
-  int sn = lut.find(sc);
-
-  uint8_t output = fn << 4 | sn;
-
-  return output;
 }
 
 void TestbedUtilities::getDefaultDistributionParameters
@@ -695,6 +722,7 @@ void TestbedUtilities::finalizePacket(std::shared_ptr<TestbedPacket> pkt,
       int ipPos = headerPos.back();
       tcpptr = (struct tcphdr*) (dataptr + tcpPos);
       ipptr = (struct ip*) (dataptr + ipPos);
+      ipptr->ip_p = (uint8_t)6;
       tcpptr->th_sum = calculateTCPChecksum(pkt, tcpPos, 06, ipptr);
     } else if (hdr.compare("udp_t") == 0) {
       // extract header to be updated
@@ -703,6 +731,7 @@ void TestbedUtilities::finalizePacket(std::shared_ptr<TestbedPacket> pkt,
       int ipPos = headerPos.back();
       udpptr = (struct udphdr*) (dataptr + udpPos);
       ipptr = (struct ip*) (dataptr + ipPos);
+      ipptr->ip_p = (uint8_t)17;
       udpptr->uh_ulen = htons(pkt->setData().size() - udpPos);
       // make sure checksum is always computed last
       udpptr->uh_sum = calculateTCPChecksum(pkt, udpPos, 17, ipptr);
@@ -817,7 +846,7 @@ void TestbedUtilities::getResponseHeader
   struct ip resIP;
   struct tcphdr resTCP;
   struct udphdr resUDP;
-  //  Assuming Ethernet, IP and TCP/ UDP headers
+  //  Assuming Ethernet, IPv4 and TCP/ UDP headers
   reqEth = (struct ether_header*) reqPacket->setData().data();
   for (size_t index = 0; index < 6; index++) {
     resEth.ether_dhost[index] = reqEth->ether_shost[index];
@@ -847,9 +876,9 @@ void TestbedUtilities::getResponseHeader
     sizeof(struct ip));
 
 
-  if (headers.at(2).compare("tcp_t") == 0) {
+  if (headers.size() > 2 && headers.at(2).compare("tcp_t") == 0) {
     reqTCP = (struct tcphdr*) (reqPacket->setData().data() +
-      sizeof(struct ether_header) + sizeof(struct tcphdr));
+      sizeof(struct ether_header) + sizeof(struct ip));
     resTCP.th_dport = reqTCP->th_sport;
     resTCP.th_offx = reqTCP->th_offx;
     if (type == -1) {
@@ -891,9 +920,9 @@ void TestbedUtilities::getResponseHeader
     data =  static_cast<uint8_t*>(static_cast<void*>(&resTCP));
     resPacket->setData().insert(resPacket->setData().end(), data,  data +
       sizeof(struct tcphdr));
-  } else if (headers.at(2).compare("udp_t") == 0) {
+  } else if (headers.size() > 2 && headers.at(2).compare("udp_t") == 0) {
     reqUDP = (struct udphdr*) (reqPacket->setData().data() +
-      sizeof(struct ether_header) + sizeof(struct tcphdr));
+      sizeof(struct ether_header) + sizeof(struct ip));
     resUDP.uh_sport = reqUDP->uh_sport;
     resUDP.uh_dport = reqUDP->uh_dport;
     resUDP.uh_ulen = 0;
@@ -902,11 +931,29 @@ void TestbedUtilities::getResponseHeader
     resPacket->setData().insert(resPacket->setData().end(),
       data,  data + sizeof(struct udphdr));
   }
+  if (headers.size() > 3 && headers.at(3).compare("dns_t") == 0) {
+    struct dnshdr *reqDNS;
+    struct dnshdr resDNS;
+    reqDNS = (struct dnshdr*)(reqPacket->setData().data() +
+      sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct udphdr));
+    resDNS = *reqDNS;
+    resDNS.qr = 1;
+    resDNS.q_count = 0;
+    resDNS.ans_count = htons(static_cast<uint16_t>(1));
+    data =  static_cast<uint8_t*>(static_cast<void*>(&resDNS));
+    resPacket->setData().insert(resPacket->setData().end(), data ,
+      data + sizeof(struct dnshdr));
+    int questionPos = sizeof(struct ether_header) + sizeof(struct ip)
+      + sizeof(struct udphdr) +sizeof(struct dnshdr);
+    // Copy the question part as well as that is part of the answer also :)
+    resPacket->setData().insert(resPacket->setData().end(),
+    reqPacket->setData().begin() + questionPos, reqPacket->setData().end());
+  }
   // struct trackhdr resTrack;
 }
 
 std::vector<std::string> TestbedUtilities::getIPv4List(std::string dnsmsq,
-  int maxListSize) {
+  int maxListSize, int initIndex) {
   std::vector<std::string> ipv4List;
   std::stringstream dnsmsqss(dnsmsq);
   std::string mask, prefix;
@@ -915,7 +962,7 @@ std::vector<std::string> TestbedUtilities::getIPv4List(std::string dnsmsq,
   std::bitset<32> andMask, orMask;
   std::bitset<32> maskbits, minIP, maxIP;
   int bitsav = 32-stoi(prefix);
-
+  ipv4List.clear();
   if (bitsav == 0) {
     ipv4List.push_back(mask);
   } else {
@@ -925,17 +972,25 @@ std::vector<std::string> TestbedUtilities::getIPv4List(std::string dnsmsq,
     }
     orMask = ~andMask;
     struct in_addr temp;
-    inet_aton(mask.c_str(), &temp);
-    maskbits = std::bitset<32>(ntohl(temp.s_addr));
+    if (inet_aton(mask.c_str(), &temp) == 0) {
+      assert(!"Incorrect IP received");
+    }
 
+    maskbits = std::bitset<32>(ntohl(temp.s_addr));
     minIP = std::bitset<32>(maskbits & andMask);
     uint32_t minIPlong = minIP.to_ulong();
 
     maxIP = std::bitset<32>(maskbits | orMask);
     uint32_t maxIPlong = maxIP.to_ulong();
-    minIPlong = minIPlong+5;
+    temp.s_addr = htonl(minIPlong);
+    temp.s_addr = htonl(maxIPlong);
+    minIPlong = minIPlong + (uint32_t)initIndex;
+    temp.s_addr = htonl(minIPlong);
     while (minIPlong <= maxIPlong) {
       temp.s_addr = htonl(minIPlong);
+      if (inet_ntoa(temp) == 0) {
+        assert(!"Incorrect IP received");
+      }
       std::string memip = inet_ntoa(temp);
       minIPlong++;
       ipv4List.push_back(memip);
@@ -969,7 +1024,7 @@ std::vector<std::string> TestbedUtilities::interleaveVectors
   return cps;
 }
 
-std::string TestbedUtilities::getConnectionID(
+std::string TestbedUtilities::getIPAddress(
   const std::vector<uint8_t> &packet, const std::vector<std::string> &list,
   const std::string &type) {
   struct ip *ipptr;
@@ -979,8 +1034,14 @@ std::string TestbedUtilities::getConnectionID(
     if (header_name.compare("ipv4_t")) {
       ipptr = (struct ip*)(packet.data() + sizeof(ether_header));
       if (type.compare("src") == 0) {
+        if (inet_ntoa(ipptr->ip_src) == 0) {
+          assert(!"Incorrect ip_src");
+        }
         id = inet_ntoa(ipptr->ip_src);
       } else {
+        if (inet_ntoa(ipptr->ip_dst) == 0) {
+          assert(!"Incorrect ip_dst");
+        }
         id = inet_ntoa(ipptr->ip_dst);
       }
     }
@@ -1033,4 +1094,333 @@ std::vector<uint8_t> TestbedUtilities::getLayer4Header(
     }
   }
   return l4hdr;
+}
+
+std::string TestbedUtilities::getServerInstanceAddress(const AddrType &addrType,
+  const std::map<std::string, size_t> &sessions, int initIndex) {
+    size_t prefixIndex = -1;
+    int elements = 10;
+    size_t prefixLen = addrType.prefix_values.size();
+    if (addrType.distribution.type.compare("round-robin") == 0) {
+      // loop to go over the prefixes one by one
+      // Everytime we get elements number of IPs
+      // then we check what we can assign first :)
+      while (true) {
+        int maxIPs = 0;
+        std::vector<std::vector<std::string> > allIPS;
+        for (std::string dnsmsq : addrType.prefix_values) {
+          std::vector<std::string> msqips = getIPv4List(dnsmsq, elements,
+            initIndex);
+          allIPS.push_back(msqips);
+          if (maxIPs < msqips.size()) {
+            maxIPs = msqips.size();
+          }
+        }
+        for (int i = 0; i < elements; i++) {
+          for (int j = 0; j < prefixLen; j++) {
+            std::string sid = allIPS.at(j).at(i);
+            if (sessions.find(sid) == sessions.end()) {
+              return sid;
+            }
+          }
+        }
+        if (maxIPs < elements) {
+          assert(!"New server instance could not be added! Possibly ran out of"
+            + " assignable IP addresses!");
+        }
+        elements *= 2;
+      }
+    } else {
+      prefixIndex = getRandomNum(0, prefixLen - 1,
+        addrType.distribution.type, addrType.distribution.param1,
+        addrType.distribution.param2);
+    }
+    std::string prefix = addrType.prefix_values.at(prefixIndex);
+    // std::string sid;
+    elements = 10;
+    while (true) {
+      std::vector<std::string> ips = getIPv4List(prefix, elements, initIndex);
+      for (std::string sid : ips) {
+        if (sessions.find(sid) == sessions.end()) {
+          return sid;
+        }
+      }
+      if (ips.size() < elements) {
+        assert(!"New server instance could not be added! Possibly ran out of" +
+          " assignable IP addresses!");
+      }
+      elements *= 2;
+    }
+
+    return NULL;
+}
+std::vector<std::string> TestbedUtilities::getBaseIPs(
+  const AddrType &addrType) {
+  std::vector<std::string> baseIPs;
+  for (std::string prefix : addrType.prefix_values) {
+    std::vector<std::string> msqips = getIPv4List(prefix, 1, 0);
+    baseIPs.push_back(msqips.at(0));
+  }
+  return baseIPs;
+}
+void TestbedUtilities::updateAddress(std::shared_ptr<TestbedPacket> pkt,
+  const std::vector<std::string> &headers, const std::string &newAddress,
+  const std::string &type) {
+  size_t headerPos = 0;
+  for (std::string hdr : headers) {
+    if (hdr.compare("ethernet_t") == 0) {
+      headerPos += sizeof(struct ether_header);
+    } else if (hdr.compare("ipv4_t") == 0) {
+      struct ip* ipptr = (struct ip*)(pkt->setData().data() + headerPos);
+      if (type.compare("dst") == 0) {
+        if (inet_aton(newAddress.c_str(), &ipptr->ip_dst) == 0) {
+          std::cerr << "We got an invalid IP address - 03! Server addr: "
+            << newAddress << std::endl;
+          assert(false);
+        }
+      } else if (type.compare("src") == 0) {
+        if (inet_aton(newAddress.c_str(), &ipptr->ip_src) == 0) {
+          std::cerr << "We got an invalid IP address - 04! Server addr: "
+            << newAddress << std::endl;
+          assert(false);
+        }
+      }
+    } else if (hdr.compare("ipv6_t") ==0) {
+      headerPos += sizeof(struct ip6_hdr);
+    }
+  }
+}
+// All our DNS Packets will be UDP packets
+// 1. type = 0 : DNS Query
+// 2. type = 1 : DNS Response
+void TestbedUtilities::getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
+  std::shared_ptr<TestbedPacket> resPacket, int type,
+  const std::vector<std::string> &headers, const std::string &message) {
+  struct tcphdr *tcpptr;
+  // create a new packet
+  if (type == 0) {
+    int headerPos = 0;
+    resPacket->setData().clear();
+    for (std::string hdr : headers) {
+      if (hdr.compare("ethernet_t") == 0) {
+        struct ether_header *ethernetptr;
+        ethernetptr = (struct ether_header*)(reqPacket->getData().data());
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ethernetptr));
+        resPacket->setData().insert(resPacket->setData().end(), data ,
+          data + sizeof(struct ether_header));
+        headerPos += sizeof(struct ether_header);
+      } else if (hdr.compare("ipv4_t") == 0) {
+        struct ip *ipptr;
+        ipptr = (struct ip*)(reqPacket->getData().data() + headerPos);
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ipptr));
+        resPacket->setData().insert(resPacket->setData().end(), data ,
+          data + sizeof(struct ip));
+        headerPos += sizeof(struct ip);
+      } else if (hdr.compare("ipv6_t") ==0) {
+        struct ip6_hdr *ip6ptr;
+        ip6ptr = (struct ip6_hdr*)(reqPacket->getData().data() + headerPos);
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ip6ptr));
+        resPacket->setData().insert(resPacket->setData().end(), data ,
+          data + sizeof(struct ip6_hdr));
+        headerPos += sizeof(struct ip6_hdr);
+      } else if (hdr.compare("udp_t") == 0) {
+        struct udphdr *udpptr;
+        udpptr = (struct udphdr*)(reqPacket->getData().data() + headerPos);
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(udpptr));
+        resPacket->setData().insert(resPacket->setData().end(), data ,
+          data + sizeof(struct udphdr));
+        headerPos += sizeof(struct udphdr);
+      } else if (hdr.compare("tcp_t") == 0) {
+        tcpptr = (struct tcphdr*)(reqPacket->getData().data() + headerPos);
+        struct udphdr udpheader;
+        udpheader.uh_dport = tcpptr->th_dport;
+        udpheader.uh_sport = tcpptr->th_sport;
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udpheader));
+        resPacket->setData().insert(resPacket->setData().end(), data ,
+          data + sizeof(struct udphdr));
+        headerPos += sizeof(struct udphdr);
+        // resPacket->setData().end());
+      }
+    }
+    struct dnshdr dnsheader;
+    dnsheader.id = getRandomNum(0, 100000, "uniform");  // anything random
+    dnsheader.qr = 0;  // 0 query, 1 response
+    dnsheader.opcode = 0;  // 0 standard query
+    dnsheader.aa = 0;  // authoritive answer
+    dnsheader.tc = 0;  // truncated message
+    dnsheader.rd = 0;  // recursion desired
+    dnsheader.ra = 0;  // recursion available
+    dnsheader.z = 0;  // reserved
+    dnsheader.rcode = 0;  // response code
+    dnsheader.q_count = htons(static_cast<uint16_t>(1));
+    dnsheader.ans_count = 0;
+    dnsheader.auth_count = 0;
+    dnsheader.add_count = 0;
+
+    uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&dnsheader));
+    resPacket->setData().insert(resPacket->setData().end(), data ,
+      data + sizeof(struct dnshdr));
+
+    // Now add the question
+    std::stringstream ss(message);
+    std::string item;
+    std::vector<uint8_t> question;
+
+    while (std::getline(ss, item, '.')) {
+      int x = item.size();
+      question.push_back((uint8_t)x);
+      question.insert(question.end(), item.c_str(), item.c_str() + x);
+    }
+    question.push_back((uint8_t)0);
+    while (question.size() %4 != 0) {
+      question.push_back((uint8_t)0);
+    }
+    uint16_t temp = htons((uint16_t)(1));
+    data = static_cast<uint8_t*>(static_cast<void*>(&temp));
+    // Once for the Qtype
+    question.insert(question.end(), data, data + 2);
+    // Once for the Qclass
+    question.insert(question.end(), data, data + 2);
+
+    resPacket->setData().insert(resPacket->setData().end(), question.begin(),
+      question.end());
+  } else {
+    // Create the DNS response packet
+    std::vector<std::string> dnsHeaderList;
+    for (std::string temp : headers) {
+      if (temp.compare("ethernet_t") == 0) {
+        dnsHeaderList.push_back("ethernet_t");
+      } else if (temp.compare("ipv4_t") == 0) {
+        dnsHeaderList.push_back("ipv4_t");
+      } else if (temp.compare("ipv6_t") == 0) {
+        dnsHeaderList.push_back("ipv6_t");
+      } else if (temp.compare("udp_t") == 0) {
+        dnsHeaderList.push_back("udp_t");
+      } else if (temp.compare("tcp_t") == 0) {
+        dnsHeaderList.push_back("udp_t");
+      }
+    }
+    dnsHeaderList.push_back("dns_t");
+    getResponseHeader(reqPacket, resPacket, type, dnsHeaderList);
+
+    // Add the answer part
+    uint32_t ttl = 0;
+    uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&ttl));
+    resPacket->setData().insert(resPacket->setData().end(), data, data + 4);
+    uint16_t rdlen = htons((uint16_t)(4));
+    data =  static_cast<uint8_t*>(static_cast<void*>(&rdlen));
+    resPacket->setData().insert(resPacket->setData().end(), data, data + 2);
+
+    struct in_addr dnsreply;
+    if (inet_aton(message.c_str(), &dnsreply) == 0) {
+      std::cerr << "We got an invalid DNS reply: " << message
+          << std::endl;
+      assert(false);
+    }
+    data =  static_cast<uint8_t*>(static_cast<void*>(&dnsreply));
+    resPacket->setData().insert(resPacket->setData().end(), data,
+      data + sizeof(struct in_addr));
+  }
+}
+std::string  TestbedUtilities::getDNSResponse(
+  std::shared_ptr<TestbedPacket> pkt, const std::vector<std::string> &headers) {
+    /*
+  size_t headerPos = 0;
+  for (std::string hdr : headers) {
+    if (hdr.compare("ethernet_t") == 0) {
+      headerPos += sizeof(struct ether_header);
+    } else if (hdr.compare("ipv4_t") == 0) {
+      headerPos += sizeof(struct ip);
+    } else if (hdr.compare("tcp_t") == 0) {
+      headerPos += sizeof(struct tcphdr);
+    } else if (hdr.compare("udp_t") == 0) {
+      headerPos += sizeof(struct udphdr);
+    } else if (hdr.compare("trackhdr") == 0) {
+      headerPos += sizeof(struct trackhdr);
+    } else if (hdr.compare("ipv6_t") ==0) {
+      headerPos += sizeof(struct ip6_hdr);
+    } else if (hdr.compare("dns_t") == 0) {
+      headerPos += sizeof(struct dnshdr);
+    }
+  }
+  */
+  // Query starts from here.. actually answer is only the last 4 octets
+  struct in_addr *dnsreply = (struct in_addr*)(pkt->getData().data()
+    + pkt->getData().size() - sizeof(struct in_addr));
+  if (inet_ntoa(*dnsreply) == 0) {
+    assert(!"Incorrect dns reply received!");
+  }
+  std::string rep = inet_ntoa(*dnsreply);
+  return rep;
+}
+void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
+  const std::vector<std::string> &headers) {
+  size_t headerPos = 0;
+
+  for (std::string hdr : headers) {
+    if (hdr.compare("ethernet_t") == 0) {
+      struct ether_header *ethernetptr
+        = (struct ether_header*)(packet_data.data() + headerPos);
+
+      std::cout << "ether_dhost: ";
+      for (int index = 0; index < 6; index++) {
+        std::cout << (uint32_t)ethernetptr->ether_dhost[index] << ":";
+      } std::cout << std::endl;
+      std::cout << "ether_shost: ";
+      for (int index = 0; index < 6; index++) {
+        std::cout << (uint32_t)ethernetptr->ether_shost[index] << ":";
+      } std::cout << std::endl;
+      std::cout << "ether_type: " << (uint32_t)ntohs(ethernetptr->ether_type)
+        << std::endl;
+
+      headerPos += sizeof(struct ether_header);
+    } else if (hdr.compare("ipv4_t") == 0) {
+      struct ip *ipptr
+        = (struct ip*)(packet_data.data() + headerPos);
+
+      std::cout << "ip_vhl" << ipptr->ip_vhl  << std::endl;
+      std::cout << "ip_tos" << ipptr->ip_tos  << std::endl;
+      std::cout << "ip_len" << ntohs(ipptr->ip_len)     << std::endl;
+      std::cout << "ip_id"  << ntohs(ipptr->ip_id)      << std::endl;
+      std::cout << "ip_off" << ntohs(ipptr->ip_off)     << std::endl;
+      std::cout << "ip_ttl" << ipptr->ip_ttl  << std::endl;
+      std::cout << "ip_p"   << ipptr->ip_p    << std::endl;
+      std::cout << "ip_sum" << ntohs(ipptr->ip_sum)     << std::endl;
+      if (inet_ntoa(ipptr->ip_src) == 0) {
+        assert(!"Incorrect IP received");
+      }
+      std::cout << "ip_src" << inet_ntoa(ipptr->ip_src) << std::endl;
+      if (inet_ntoa(ipptr->ip_dst) == 0) {
+        assert(!"Incorrect IP received");
+      }
+      std::cout << "ip_dst" << inet_ntoa(ipptr->ip_dst) << std::endl;
+
+      headerPos += sizeof(struct ip);
+    } else if (hdr.compare("tcp_t") == 0) {
+      struct tcphdr *tcpptr
+        = (struct tcphdr*)(packet_data.data() + headerPos);
+
+      std::cout << "th_sport" << ntohs(tcpptr->th_sport)   << std::endl;
+      std::cout << "th_dport" << ntohs(tcpptr->th_dport)   << std::endl;
+      std::cout << "th_seq"   << ntohl(tcpptr->th_seq)     << std::endl;
+      std::cout << "th_ack"   << ntohl(tcpptr->th_ack)     << std::endl;
+      std::cout << "th_offx"  << (uint32_t)tcpptr->th_offx << std::endl;
+      std::cout << "th_flags" << (uint32_t)tcpptr->th_flags << std::endl;
+      std::cout << "th_win"   << ntohs(tcpptr->th_win)      << std::endl;
+      std::cout << "th_sum"   << ntohs(tcpptr->th_sum)      << std::endl;
+      std::cout << "th_urp"   << ntohs(tcpptr->th_urp)      << std::endl;
+
+      headerPos += sizeof(struct tcphdr);
+    } else if (hdr.compare("udp_t") == 0) {
+      struct udphdr *udpptr
+        = (struct udphdr*)(packet_data.data() + headerPos);
+
+      std::cout << "uh_sport" << ntohs(udpptr->uh_sport) << std::endl;
+      std::cout << "uh_dport" << ntohs(udpptr->uh_dport) << std::endl;
+      std::cout << "uh_ulen"  << ntohs(udpptr->uh_ulen)  << std::endl;
+      std::cout << "uh_sum"   << ntohs(udpptr->uh_sum)   << std::endl;
+
+      headerPos += sizeof(struct udphdr);
+    }
+  }
 }

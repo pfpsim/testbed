@@ -335,16 +335,7 @@ PE NPU("NPUConfig.cfg") implements ControlPlaneAgentS {
 
 };
 
-PE SortedLogger {
-  QueueRdI in;
-  QueueWrI out;
-};
-
 PE Logger("LoggerConfig.cfg") {
   QueueRdI in;
   QueueWrI out;
-};
-
-PE PacketSink {
-  QueueRdI in;
 };

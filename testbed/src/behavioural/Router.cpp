@@ -45,7 +45,7 @@ void Router::Router_PortServiceThread() {
         auto routepacket = unbox_routing_packet<>
                            (ocn_rd_if.at(readportnumber)->get());
         #ifdef RouterLogging
-        LogPacket(readlog, routepacket);
+        // LogPacket(readlog, routepacket);
         #endif
         auto dest = EvaluateHierarchicalDestination(routepacket->destination);
         int outputportnumber;
@@ -59,7 +59,7 @@ void Router::Router_PortServiceThread() {
         wait(1, SC_NS);
         ocn_wr_if.at(outputportnumber)->put(routepacket);
         #ifdef RouterLogging
-        LogPacket(outlog, routepacket);
+        // LogPacket(outlog, routepacket);
         #endif
       }
     }

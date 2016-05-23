@@ -165,8 +165,8 @@ void ControlPlaneAgent::updateMemUsage(uint64_t addtousage) {
   table_mem_usage[current_table_name] =
       table_mem_usage[current_table_name] + addtousage;
   increment_counter(current_table_name, addtousage);
-  outlog << "@" << sc_time_stamp() << ","
-         << current_table_name << "," << addtousage << std::endl;
+  // outlog << "@" << sc_time_stamp() << ","
+  //       << current_table_name << "," << addtousage << std::endl;
   return;
 }
 // Reports memusage for a table

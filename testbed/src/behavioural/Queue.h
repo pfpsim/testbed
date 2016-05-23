@@ -5,8 +5,6 @@
 #include "../structural/QueueSIM.h"
 #include "QueueRdI.h"
 #include "QueueWrI.h"
-#include "TestbedRdI.h"
-#include "TestbedWrI.h"
 
 template<typename T>
 class Queue:

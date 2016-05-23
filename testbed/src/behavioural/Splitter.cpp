@@ -79,8 +79,8 @@ void Splitter::SplitterThread(std::size_t thread_id) {
         npulog(minimal,
           cout << "received Packet" << IBlue << npu_packet->id() << txtrst
                << " from ingress" << endl;)
-        outlog << npu_packet->id() << ","
-               << sc_time_stamp().to_default_time_units() << endl;
+        // outlog << npu_packet->id() << ","
+        //       << sc_time_stamp().to_default_time_units() << endl;
         counter1++;
 
         // 1.1. Extract data

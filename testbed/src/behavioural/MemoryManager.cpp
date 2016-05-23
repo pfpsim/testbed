@@ -40,15 +40,15 @@ void MemoryManager::MemoryManagerThread(std::size_t thread_id) {
           << "   --- free addr head at :" <<addrcounter <<endl
           << "   --- just allocated :" <<ipcpkt->bytes_to_allocate <<endl;)
 
-        outlog << "MemoryManager@" << sc_time_stamp() << ":"
-              << "Source," << received->source << ",V," << virtualaddr
-              << ",P," << dest.physcialaddr << ",dest," << dest.memname
-              << ",free addr head at:," << addrcounter
-              << ",TableName:," << ipcpkt->table_name
-              << ",Wordallocation," << ipcpkt->bytes_to_allocate
-              << ",Byteallocation,"
-              << wordsizetoBytes(ipcpkt->bytes_to_allocate)
-              <<endl;
+        // outlog << "MemoryManager@" << sc_time_stamp() << ":"
+        //      << "Source," << received->source << ",V," << virtualaddr
+        //      << ",P," << dest.physcialaddr << ",dest," << dest.memname
+        //      << ",free addr head at:," << addrcounter
+        //      << ",TableName:," << ipcpkt->table_name
+        //      << ",Wordallocation," << ipcpkt->bytes_to_allocate
+        //      << ",Byteallocation,"
+        //      << wordsizetoBytes(ipcpkt->bytes_to_allocate)
+        //      <<endl;
 
         ipcpkt->table_name = "";
         ipcpkt->tlm_address = dest.physcialaddr;

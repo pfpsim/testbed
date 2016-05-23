@@ -1,6 +1,7 @@
 import npu;
 interface TestbedRdI, TestbedWrI;
-CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI, QueueWrI, QueueRdI;
+CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
+CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueWrI, QueueRdI;
 
 PE TCPServer("TCPServer.cfg"){
 	TestbedRdI in;
@@ -22,11 +23,6 @@ PE UDPClient("UDPClient.cfg"){
 	TestbedWrI out;
 };
 
-PE LoadBalancer("LoadBalancer.cfg"){
-  TestbedRdI in_cl, in_se;
-  TestbedWrI out_cl, out_se;
-};
-
 PE TestbedMux {
 	TestbedRdI in[];
 	TestbedWrI out;
@@ -41,99 +37,73 @@ PE TestbedDemux {
 	TestbedWrI loop_out;
 };
 
-// PE Testbed {
-PE top("TopConfig.cfg") {
-  // TestbedRdI in;
-  // TestbedWrI out;
+PE Testbed {
+  TestbedRdI in;
+  TestbedWrI out;
 
-  TCPServer server_ytl("server_ytl.cfg"),server_yts("server_yts.cfg"), server_test("server_test.cfg");
-  TCPClient client_ytl("client_ytl.cfg"),client_yts("client_yts.cfg"), client_test("client_test.cfg");
-  UDPServer server_voip("server_voip.cfg");
-  UDPClient client_voip("client_voip.cfg");
+  TCPServer server_ytl("server_ytl.cfg"),server_yts("server_yts.cfg"), server_tcp_test("server_tcp_test.cfg");
+  TCPClient client_ytl("client_ytl.cfg"),client_yts("client_yts.cfg"), client_tcp_test("client_tcp_test.cfg");
+  UDPServer server_voip("server_voip.cfg"), server_udp_test("server_udp_test.cfg");
+  UDPClient client_voip("client_voip.cfg"), client_udp_test("client_udp_test.cfg");
 
-  LoadBalancer load_balancer_ytl("load_balancer_ytl.cfg"), load_balancer_yts("load_balancer_yts.cfg"), load_balancer_voip("load_balancer_voip.cfg"), load_balancer_test("load_balancer_test.cfg");
+  TestbedMux mux;
+  TestbedDemux demux;
 
-  TestbedMux mux_cl, mux_se;
-  TestbedDemux demux_cl, demux_se;
+  TestbedQueue mux_in[10];
+  TestbedQueue demux_out[10];
+	TestbedQueue loop_q;
 
-  TestbedQueue q_mux_in_cl[8], q_mux_in_se[8];
-  TestbedQueue q_demux_out_cl[8], q_demux_out_se[8];
-	TestbedQueue q_loop_q_cl, q_loop_q_se;
-  TestbedQueue q_bypass_cl, q_bypass_se;
+  TestbedQueue mux_out;
+  TestbedQueue demux_in;
+  TestbedQueue bypass;
 
-  TestbedQueue q_mux_out_cl, q_mux_out_se;
-  TestbedQueue q_demux_in_cl, q_demux_in_se;
+  bind mux.bypass {bypass};
+  bind demux.bypass {bypass};
 
-  bind mux_cl.bypass {q_bypass_cl};
-  bind demux_cl.bypass {q_bypass_cl};
-  bind mux_se.bypass {q_bypass_se};
-  bind demux_se.bypass {q_bypass_se};
+	bind mux.loop_in {loop_q};
+	bind demux.loop_out {loop_q};
 
-	bind mux_cl.loop_in {q_loop_q_cl};
-	bind demux_cl.loop_out {q_loop_q_cl};
-  bind mux_se.loop_in {q_loop_q_se};
-	bind demux_se.loop_out {q_loop_q_se};
+  bind client_ytl.out {mux_in[0]};
+  bind client_ytl.in {demux_out[0]};
+  bind server_ytl.out {mux_in[1]};
+  bind server_ytl.in {demux_out[1]};
+  bind client_yts.out {mux_in[2]};
+  bind client_yts.in {demux_out[2]};
+  bind server_yts.out {mux_in[3]};
+  bind server_yts.in {demux_out[3]};
+  bind client_voip.out {mux_in[4]};
+  bind client_voip.in {demux_out[4]};
+  bind server_voip.out {mux_in[5]};
+  bind server_voip.in {demux_out[5]};
+  bind client_tcp_test.out {mux_in[6]};
+  bind client_tcp_test.in {demux_out[6]};
+  bind server_tcp_test.out {mux_in[7]};
+  bind server_tcp_test.in {demux_out[7]};
+  bind client_udp_test.out {mux_in[8]};
+  bind client_udp_test.in {demux_out[8]};
+  bind server_udp_test.out {mux_in[9]};
+  bind server_udp_test.in {demux_out[9]};
 
-  bind client_ytl.out {q_mux_in_cl[0]};
-  bind client_ytl.in {q_demux_out_cl[0]};
-  bind load_balancer_ytl.out_cl {q_mux_in_cl[1]};
-  bind load_balancer_ytl.in_cl {q_demux_out_cl[1]};
-  bind client_yts.out {q_mux_in_cl[2]};
-  bind client_yts.in {q_demux_out_cl[2]};
-  bind load_balancer_yts.out_cl {q_mux_in_cl[3]};
-  bind load_balancer_yts.in_cl {q_demux_out_cl[3]};
-  bind client_voip.out {q_mux_in_cl[4]};
-  bind client_voip.in {q_demux_out_cl[4]};
-  bind load_balancer_voip.out_cl {q_mux_in_cl[5]};
-  bind load_balancer_voip.in_cl {q_demux_out_cl[5]};
-  bind client_test.out {q_mux_in_cl[6]};
-  bind client_test.in {q_demux_out_cl[6]};
-  bind load_balancer_test.out_cl {q_mux_in_cl[7]};
-  bind load_balancer_test.in_cl {q_demux_out_cl[7]};
+  bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], mux_in[4], mux_in[5], mux_in[6], mux_in[7], mux_in[8], mux_in[9]};
 
-  bind server_ytl.out {q_mux_in_se[0]};
-  bind server_ytl.in {q_demux_out_se[0]};
-  bind load_balancer_ytl.out_se {q_mux_in_se[1]};
-  bind load_balancer_ytl.in_se {q_demux_out_se[1]};
-  bind server_yts.out {q_mux_in_se[2]};
-  bind server_yts.in {q_demux_out_se[2]};
-  bind load_balancer_yts.out_se {q_mux_in_se[3]};
-  bind load_balancer_yts.in_se {q_demux_out_se[3]};
-  bind server_voip.out {q_mux_in_se[4]};
-  bind server_voip.in {q_demux_out_se[4]};
-  bind load_balancer_voip.out_se {q_mux_in_se[5]};
-  bind load_balancer_voip.in_se {q_demux_out_se[5]};
-  bind server_test.out {q_mux_in_se[6]};
-  bind server_test.in {q_demux_out_se[6]};
-  bind load_balancer_test.out_se {q_mux_in_se[7]};
-  bind load_balancer_test.in_se {q_demux_out_se[7]};
+  bind demux.out {demux_out[0], demux_out[1], demux_out[2], demux_out[3], demux_out[4], demux_out[5], demux_out[6], demux_out[7], demux_out[8], demux_out[9]};
 
-
-  bind mux_cl.in {q_mux_in_cl[0], q_mux_in_cl[1], q_mux_in_cl[2], q_mux_in_cl[3], q_mux_in_cl[4], q_mux_in_cl[5], q_mux_in_cl[6], q_mux_in_cl[7]};
-  bind demux_cl.out {q_demux_out_cl[0], q_demux_out_cl[1], q_demux_out_cl[2], q_demux_out_cl[3], q_demux_out_cl[4], q_demux_out_cl[5], q_demux_out_cl[6], q_demux_out_cl[7]};
-
-  bind mux_se.in {q_mux_in_se[0], q_mux_in_se[1], q_mux_in_se[2], q_mux_in_se[3], q_mux_in_se[4], q_mux_in_se[5], q_mux_in_se[6], q_mux_in_se[7]};
-  bind demux_se.out {q_demux_out_se[0], q_demux_out_se[1], q_demux_out_se[2], q_demux_out_se[3], q_demux_out_se[4], q_demux_out_se[5], q_demux_out_se[6], q_demux_out_se[7]};
-
-  bind mux_cl.out {q_mux_out_cl};
-  bind demux_cl.in {q_demux_in_cl};
-  bind mux_se.out {q_mux_out_se};
-  bind demux_se.in {q_demux_in_cl};
-
-  NPU npu_cl("NPU.cfg") ,npu_se("NPU.cfg");
-  ControlPlane control_plane_cl, control_plane_se;
-  bind control_plane_cl.cpa {npu_cl};
-  bind control_plane_se.cpa {npu_se};
-
-  bind npu_cl.ingress {q_mux_out_cl};
-  bind npu_cl.egress {q_demux_in_cl};
-  bind npu_se.ingress {q_mux_out_se};
-  bind npu_se.egress {q_demux_in_se};
-
+  bind mux.out {out};
+  bind demux.in {in};
 };
 
-/*
+
 PE top("TopConfig.cfg") {
+  ExtQueue testbed_npu, npu_testbed;
+
   Testbed testbed;
+  NPU npu("NPU.cfg");
+  ControlPlane control_plane;
+
+  bind testbed.out {testbed_npu};
+  bind npu.ingress {testbed_npu};
+  bind npu.egress  {npu_testbed};
+  bind testbed.in  {npu_testbed};
+
+  bind control_plane.cpa {npu};
 };
-*/

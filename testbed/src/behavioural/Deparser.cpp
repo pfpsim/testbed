@@ -73,8 +73,8 @@ void Deparser::DeparserThread_QueueService(std::size_t thread_id) {
        npulog(profile,
          cout << "sent Packet" << Yellow << p->id() << txtrst
               << " to egress" << endl;)
-      outlog << p->id() << "," << sc_time_stamp().to_default_time_units()
-             << endl;
+      // outlog << p->id() << "," << sc_time_stamp().to_default_time_units()
+      //       << endl;
     } else {
       wait(bufferevent);
     }

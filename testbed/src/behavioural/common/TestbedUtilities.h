@@ -1,3 +1,33 @@
+/*
+ * testbed: Simulation environment for PFPSim Framework models
+ *
+ * Copyright (C) 2016 Concordia Univ., Montreal
+ *     Samar Abdi
+ *     Umair Aftab
+ *     Gordon Bailey
+ *     Faras Dewal
+ *     Shafigh Parsazad
+ *     Eric Tremblay
+ *
+ * Copyright (C) 2016 Ericsson
+ *     Bochra Boughzala
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #ifndef BEHAVIOURAL_COMMON_TESTBEDUTILITIES_H_
 #define BEHAVIOURAL_COMMON_TESTBEDUTILITIES_H_
 #include <arpa/inet.h>
@@ -24,6 +54,10 @@ struct SizesType {
   std::vector<int32_t> size_values;
   DistributionType distribution;
 };
+struct AddrType {
+  std::vector<std::string> prefix_values;
+  DistributionType distribution;
+};
 struct ClientConfigStruct {
   std::string node_type;
   sc_time end_time;
@@ -39,12 +73,14 @@ struct ServerConfigStruct {
   int32_t datarate;
   std::vector<std::string> list;
   SizesType fsize;
+  size_t sessions;
+  AddrType prefixes;
 };
 
 /*
  * Structure to store the connection details in clients and servers.
  */
-enum ConnectionStates { connectionSetup, fileRequest, fileResponse,
+enum ConnectionStates { serverQuery, connectionSetup, fileRequest, fileResponse,
   fileProcessing, idle, connectionTeardown };
 struct ConnectionDetails{
   std::vector<uint8_t> received_header;
@@ -137,6 +173,24 @@ struct rtphdr {
   uint32_t rtp_time;
   uint32_t rtp_ssrc;
 };
+struct dnshdr {
+  unsigned short id;
+
+  unsigned char qr :1; // 0 query, 1 response
+  unsigned char opcode :4; // 0 standard query
+  unsigned char aa :1; // authoritive answer
+  unsigned char tc :1; // truncated message
+  unsigned char rd :1; // recursion desired
+
+  unsigned char ra :1; // recursion available
+  unsigned char z :3; // reserved
+  unsigned char rcode :4;  // response code
+
+  unsigned q_count :16; // number of question entries
+  unsigned ans_count :16; // number of answer entries
+  unsigned auth_count :16; // number of authority entries
+  unsigned add_count :16; // number of resource entries
+};
 
 class TestbedUtilities {
  public:
@@ -150,7 +204,6 @@ class TestbedUtilities {
     const std::string &str);
   void getDefaultDistributionParameters(
     const std::string &distribution,  double *param1, double *param2);
-  uint8_t stringTouint16(const std::string &input);
 
   int getRandomNum(int min, int max, std::string distribution,
     double param1 = 0,
@@ -161,8 +214,17 @@ class TestbedUtilities {
     const std::vector<std::string> &headers);
   void addPayload(std::shared_ptr<TestbedPacket> pkt, int len);
 
+  std::string getServerInstanceAddress(const AddrType &addrType,
+    const std::map<std::string, size_t> &sessions, int initIndex);
 
-
+  // All our DNS packets will be UDP packets for the sake of simplicity
+  // 1. type = 0 : DNS Query
+  // 2. type = 1 : DNS Response
+  void getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
+    std::shared_ptr<TestbedPacket> resPacket, int type,
+    const std::vector<std::string> &headers, const std::string &message);
+  std::string  getDNSResponse(std::shared_ptr<TestbedPacket> pkt,
+      const std::vector<std::string> &headers);
   // 1. Servers send a SYN/ACK packet                                   type -1
   // 2. Servers/Clients send a ACK packet                                type -2
   // 3. Servers/Clients send a PSH packet                                type -3
@@ -176,16 +238,25 @@ class TestbedUtilities {
   uint16_t calculateIPChecksum(void* vdata, int length);
   uint16_t calculateTCPChecksum(std::shared_ptr<TestbedPacket> pkt, int hdrPos,
     uint8_t protocol, struct ip *ipptr);
+  std::vector<std::string> getBaseIPs(const AddrType &addrType);
+  // util.updateAddress(receivedPacket, ncs.list, it->second, "dst");
+  void updateAddress(std::shared_ptr<TestbedPacket> pkt,
+    const std::vector<std::string> &headers, const std::string &newAddress,
+    const std::string &type);
 
-  std::vector<std::string> getIPv4List(std::string dnsmsq, int maxListSize);
+  std::vector<std::string> getIPv4List(std::string dnsmsq, int maxListSize,
+    int initIndex);
   std::vector<std::string> interleaveVectors(
     const std::vector<std::vector<std::string> >& cps2);
 
-  std::string getConnectionID(const std::vector<uint8_t> &packet,
-  const std::vector<std::string> &list, const std::string &type = "dst");
+  std::string getIPAddress(const std::vector<uint8_t> &packet,
+    const std::vector<std::string> &list, const std::string &type);
   size_t getHeaderLength(const std::vector<std::string> &headers);
   // https://en.wikipedia.org/wiki/List_of_network_protocols_%28OSI_model%29
   std::vector<uint8_t> getLayer4Header(const std::vector<uint8_t> &packet,
+    const std::vector<std::string> &headers);
+
+  void dissectPacket(const std::vector<uint8_t> &packet_data,
     const std::vector<std::string> &headers);
 };
 
