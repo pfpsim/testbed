@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi

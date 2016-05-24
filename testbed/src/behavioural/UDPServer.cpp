@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -96,12 +96,12 @@ void UDPServer::validatePacketSource_thread() {
     sc_time maxINwait = sc_time(3600, SC_SEC);
     if (!in->nb_can_get()) {
       sc_time stTime = sc_time_stamp();
-      npulog(profile, cout << "udp server going for wait @ " << stTime
-      << endl;)
+      // npulog(profile, cout << "udp server going for wait @ " << stTime
+      // << endl;)
       wait(maxINwait, in->ok_to_get());
       sc_time endTime = sc_time_stamp();
-      npulog(profile, cout << "udp server came out of wait @ " << endTime
-      << endl;)
+      // npulog(profile, cout << "udp server came out of wait @ " << endTime
+      // << endl;)
       if (endTime - stTime >= maxINwait) {
         for (sc_process_handle temp : ThreadHandles) {
           npulog(profile, cout << "udp server killing all its threads"

@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -55,6 +55,17 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
     muxLock.lock();
     packetCount++;
     pcapLogger->logPacket(packet->getData(), sc_time_stamp());
+
+    // Just to make the Testbed work without the NPU model
+    if (port_num %2 == 0) {
+      // Typically this would from a client to a server
+      // Hence, +1
+      packet->setEgressPort(port_num+1);
+    } else {
+      packet->setEgressPort(port_num-1);
+    }
+    // Servers are at one + to the clients
+
     incomingPackets.push(packet);
     npulog(profile, cout << packetCount << " packets sent to NPU" << endl;)
     muxLock.unlock();

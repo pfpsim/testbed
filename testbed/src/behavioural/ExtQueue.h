@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -35,15 +35,11 @@
 #include "../structural/ExtQueueSIM.h"
 #include "TestbedRdI.h"
 #include "TestbedWrI.h"
-#include "QueueRdI.h"
-#include "QueueWrI.h"
 
 template<typename T>
 class ExtQueue:
 public TestbedRdI<T>,
 public TestbedWrI<T>,
-public QueueRdI<T>,
-public QueueWrI<T>,
 public ExtQueueSIM {
  public:
   /* CE Consturctor */

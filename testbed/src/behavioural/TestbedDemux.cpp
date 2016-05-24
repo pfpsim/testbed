@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -51,7 +51,7 @@ void TestbedDemux::processPacketStream() {
   while (true) {
     std::shared_ptr<TestbedPacket> outgoing =
      std::dynamic_pointer_cast<TestbedPacket>(in->get());
-    size_t portNumber = outgoing->getEgressPort() - 1;
+    size_t portNumber = outgoing->getEgressPort();  // - 1;
     if (portNumber >= out.size()) {
       npulog(profile, cout << "FATAL: Going for port number: "
       << portNumber << endl;)

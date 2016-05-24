@@ -1,5 +1,5 @@
 /*
- * simple-npu: Example NPU simulation model using the PFPSim Framework
+ * testbed: Simulation environment for PFPSim Framework models
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -104,10 +104,8 @@ void UDPClient::populateLocalMap() {
 // Administrative methods
 void UDPClient::addClientInstances() {
   TestbedUtilities util;
-  npulog(profile, cout << "Client IDs are: ";)
   for (std::vector<uint8_t> header : ncs.header_data) {
     std::string clientID = util.getIPAddress(header, ncs.list, "src");
-    npulog(profile, cout << clientID << ", ";)
     struct ConnectionDetails cdet;
     cdet.connection_state = serverQuery;
     cdet.file_pending = 0;
@@ -119,7 +117,6 @@ void UDPClient::addClientInstances() {
     clientDetails.insert(std::pair<std::string, struct ConnectionDetails>
       (clientID, cdet));
   }
-  npulog(profile, cout << endl;)
 }
 void UDPClient::activateClientInstance_thread() {
   std::string maxinst = GetParameter("virtualInstances").get();
@@ -288,8 +285,8 @@ void UDPClient::scheduler_thread() {
          // wait for resolution time
          wait(rtime, SC_NS);
          rtime = rtime*2;
-         npulog(profile, cout << "udp client is uncontrolled!"
-         << rtime << endl;)
+         // npulog(profile, cout << "udp client is uncontrolled!"
+         // << rtime << endl;)
        }
     }
   }

@@ -6,11 +6,6 @@ insert_entry service_request 13.1.0.0/16  10003'2 assign_server 117.244.0.0
 insert_entry service_request 14.1.0.0/16  10004'2 assign_server 147.244.0.0
 
 # IPv4 LPM
-#insert_entry ipv4_lpm 10.1.0.0/16      set_nhop 11.1.0.0   2
-#insert_entry ipv4_lpm 11.1.0.0/16      set_nhop 11.4.0.0   4
-#insert_entry ipv4_lpm 12.1.0.0/16      set_nhop 11.8.0.0   6
-#insert_entry ipv4_lpm 13.1.0.0/16      set_nhop 11.11.0.0  8
-#insert_entry ipv4_lpm 14.1.0.0/16      set_nhop 11.14.0.0  10
 insert_entry ipv4_lpm 117.45.24.21/16      set_nhop 10.1.0.0   1
 insert_entry ipv4_lpm 17.244.34.233/16     set_nhop 11.1.0.0   2
 insert_entry ipv4_lpm 127.45.24.21/16      set_nhop 10.2.0.0   1
