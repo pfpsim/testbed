@@ -55,8 +55,8 @@ before_install:
   - sudo pip install pfpgen*.whl
 
 install:
-  - pfpgen npu.fad
-  - cd npu/build
+  - pfpgen testbed.fad
+  - cd testbed/build
   - cmake ../src
   - make -j2
 
