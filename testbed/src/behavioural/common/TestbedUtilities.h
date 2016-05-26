@@ -174,7 +174,7 @@ struct rtphdr {
   uint32_t rtp_ssrc;
 };
 struct dnshdr {
-  unsigned uint16_t id;
+  uint16_t id;
 
   unsigned char qr :1;  // 0 query, 1 response
   unsigned char opcode :4;  // 0 standard query
