@@ -35,6 +35,7 @@
 #include "../structural/TestbedDemuxSIM.h"
 #include "common/TestbedUtilities.h"
 #include "common/TestbedPacket.h"
+#include "common/PcapLogger.h"
 
 class TestbedDemux: public TestbedDemuxSIM {
  public:
@@ -55,6 +56,8 @@ class TestbedDemux: public TestbedDemuxSIM {
   void analyzeMetrics();
   void processPacketStream();
   void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
+
+  PcapLogger *pcapLogger;
 };
 
 #endif  // BEHAVIOURAL_TESTBEDDEMUX_H_

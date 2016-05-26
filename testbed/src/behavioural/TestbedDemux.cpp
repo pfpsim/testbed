@@ -32,6 +32,7 @@
 #include <string>
 
 TestbedDemux::TestbedDemux(sc_module_name nm , int outPortSize, pfp::core::PFPObject* parent, std::string configfile):TestbedDemuxSIM(nm ,outPortSize,parent,configfile) {  // NOLINT
+  pcapLogger = new PcapLogger("egress_sctime.pcap");
     /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(sc_bind
     (&TestbedDemux::processPacketStream, this)));
@@ -51,7 +52,7 @@ void TestbedDemux::processPacketStream() {
   while (true) {
     std::shared_ptr<TestbedPacket> outgoing =
      std::dynamic_pointer_cast<TestbedPacket>(in->get());
-    size_t portNumber = outgoing->getEgressPort();  // - 1;
+    size_t portNumber = outgoing->getEgressPort() - 1;
     if (portNumber >= out.size()) {
       npulog(profile, cout << "FATAL: Going for port number: "
       << portNumber << endl;)
@@ -61,6 +62,7 @@ void TestbedDemux::processPacketStream() {
       npulog(profile, cout << "Going for port number: " << portNumber
       << endl;)
       out[portNumber]->put(outgoing);
+      pcapLogger->logPacket(outgoing->getData(), sc_time_stamp());
     }
   }
 }
