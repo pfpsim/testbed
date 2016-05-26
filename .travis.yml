@@ -8,6 +8,10 @@ compiler:
 
 
 before_install:
+  # Before doing anything else, let's be sure that the code at least has good style.
+  - sudo pip install cpplint
+  - .travis/run_lint.sh
+  # Ok, now we can do all the rest of installing dependencies and whatnot
   - sudo cp /etc/apt/sources.list /etc/apt/sources.list.d/trusty.list
   - sudo sed -i 's/precise/trusty/g' /etc/apt/sources.list.d/trusty.list
   - sudo apt-get update -qq -y
@@ -44,13 +48,11 @@ before_install:
   - sudo make install
   - cd ..
   # Install PFPSim core and PFP-P4
-  - .travis/get-PFPSim.py "v2.1.1" "$CXX" "$GITHUB_TOKEN"
+  - .travis/get-PFPSim.py "v1.0.0" "$CXX"
   - sudo dpkg -i pfpsim*.deb
   # Install pfpgen
-  - git clone git@github.com:pfpsim/pfpgen.git --branch master
-  - cd pfpgen
-  - sudo python setup.py install
-  - cd ..
+  - .travis/get-pfpgen.py "v1.0.0"
+  - sudo pip install pfpgen*.whl
 
 install:
   - pfpgen npu.fad

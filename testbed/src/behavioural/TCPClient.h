@@ -66,7 +66,8 @@ class TCPClient: public TCPClientSIM {
 
   // Behavioral methods
   void requestServerInstance(std::string clientID);
-  void establishConnection(std::string clientID = NULL, std::string serverID = NULL);
+  void establishConnection(std::string clientID = NULL,
+    std::string serverID = NULL);
   void requestFile();
   void registerFile();
   void processFile();
