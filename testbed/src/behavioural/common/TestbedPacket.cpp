@@ -49,6 +49,14 @@ void TestbedPacket::setEgressPort(std::size_t egressPort) {
 std::size_t TestbedPacket::getEgressPort() {
   return egressPort;
 }
+
+void TestbedPacket::setIngressPort(std::size_t ingressPort) {
+  TestbedPacket::ingressPort = ingressPort;
+}
+std::size_t TestbedPacket::getIngressPort() {
+  return ingressPort;
+}
+
 std::string TestbedPacket::data_type() const {
   return "TestbedPacket";
 }

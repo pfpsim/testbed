@@ -56,7 +56,11 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
     packetCount++;
     pcapLogger->logPacket(packet->getData(), sc_time_stamp());
 
+    packet->setIngressPort(port_num);
+
     // Just to make the Testbed work without the NPU model
+    // In the NPU model, the egress port would be re-written
+    // by the P4 application
     if (port_num %2 == 0) {
       // Typically this would from a client to a server
       // Hence, +1
@@ -64,6 +68,9 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
     } else {
       packet->setEgressPort(port_num-1);
     }
+    // Incrementing by one, because P4 port index has been configured to
+    // start with 1 in the provided testbedRouting Table.txt
+    packet->setEgressPort(packet->getEgressPort() + 1);
     // Servers are at one + to the clients
 
     incomingPackets.push(packet);

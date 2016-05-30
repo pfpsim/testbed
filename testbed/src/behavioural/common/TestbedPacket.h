@@ -51,11 +51,15 @@ class TestbedPacket : public pfp::core::TrType {
   void setEgressPort(std::size_t  egressPort);
   std::size_t  getEgressPort();
 
+  void setIngressPort(std::size_t  egressPort);
+  std::size_t  getIngressPort();
+
   std::string data_type() const override;
 
  public:
   std::vector<uint8_t> _data;
   std::size_t egressPort;
+  std::size_t ingressPort;
 };
 
 #endif  // BEHAVIOURAL_COMMON_TESTBEDPACKET_H_
