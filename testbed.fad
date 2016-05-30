@@ -1,6 +1,7 @@
+import npu;
 interface TestbedRdI, TestbedWrI;
 CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
-CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI;
+CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueRdI, QueueWrI;
 
 PE TCPServer("TCPServer.cfg"){
 	TestbedRdI in;
@@ -96,9 +97,13 @@ PE top("TopConfig.cfg") {
   ExtQueue testbed_npu, npu_testbed;
 
   Testbed testbed;
+  NPU npu("NPU.cfg");
+  ControlPlane control_plane;
+
+  bind control_plane.cpa {npu};
 
   bind testbed.out {testbed_npu};
-  // BIND TO THE INGRESS OF THE NPU MODEL
-  // BIND TO THE EGRESS OF THE NPU MODEL
-  bind testbed.in  {testbed_npu};
+  bind npu.ingress {testbed_npu};
+  bind npu.egress {npu_testbed};
+  bind testbed.in  {npu_testbed};
 };

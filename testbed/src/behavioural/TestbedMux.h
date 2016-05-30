@@ -36,6 +36,8 @@
 #include "common/TestbedUtilities.h"
 #include "common/TestbedPacket.h"
 #include "common/PcapLogger.h"
+#include "common/InputStimulus.h"
+#include "common/Packet.h"
 
 class TestbedMux: public TestbedMuxSIM {
  public:

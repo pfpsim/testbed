@@ -30,6 +30,8 @@
 
 #include "./TestbedMux.h"
 #include <string>
+#include <chrono>
+
 
 TestbedMux::TestbedMux(sc_module_name nm , int inPortSize, pfp::core::PFPObject* parent, std::string configfile):TestbedMuxSIM(nm ,inPortSize,parent,configfile) {  // NOLINT
     pcapLogger = new PcapLogger("ingress_sctime.pcap");
@@ -49,31 +51,37 @@ void TestbedMux::init() {
 }
 void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
   // Thread function to service input ports.
+  // Utilites for converting Testbed Packet to Npu Packet
+  auto seed =
+    std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937 rng(seed);
+  int contexts = SimulationParameters["contexts"].get();
+  int isolation_groups = SimulationParameters["isolation_groups"].get();
+  std::uniform_int_distribution<std::size_t> uid_contexts(0, contexts - 1);
+  std::uniform_int_distribution<std::size_t>
+    uid_isolation_groups(0, isolation_groups - 1);
+
   while (true) {
-    std::shared_ptr<TestbedPacket> packet =
+    std::shared_ptr<TestbedPacket> testbed_packet =
     std::dynamic_pointer_cast<TestbedPacket>(in[port_num]->get());
     muxLock.lock();
     packetCount++;
-    pcapLogger->logPacket(packet->getData(), sc_time_stamp());
+    pcapLogger->logPacket(testbed_packet->getData(), sc_time_stamp());
 
-    packet->setIngressPort(port_num);
+    testbed_packet->setIngressPort(port_num);
 
-    // Just to make the Testbed work without the NPU model
-    // In the NPU model, the egress port would be re-written
-    // by the P4 application
-    if (port_num %2 == 0) {
-      // Typically this would from a client to a server
-      // Hence, +1
-      packet->setEgressPort(port_num+1);
-    } else {
-      packet->setEgressPort(port_num-1);
-    }
-    // Incrementing by one, because P4 port index has been configured to
-    // start with 1 in the provided testbedRouting Table.txt
-    packet->setEgressPort(packet->getEgressPort() + 1);
-    // Servers are at one + to the clients
+    // Converting testbed packet to NPU packet format
 
-    incomingPackets.push(packet);
+    std::size_t context         = 1;  // uid_contexts(rng);
+    std::size_t isolation_group = uid_isolation_groups(rng);
+    Packet npu_packet(packetCount, context, -1, testbed_packet->getData());
+    auto npu_packet_tuple = std::make_tuple
+                        (std::make_shared<Packet>(npu_packet),
+                        context, isolation_group);
+    auto input_stimulus_packet = std::make_shared<InputStimulus>
+      (packetCount, npu_packet_tuple);
+
+    incomingPackets.push(input_stimulus_packet);
     npulog(profile, cout << packetCount << " packets sent to NPU" << endl;)
     muxLock.unlock();
   }

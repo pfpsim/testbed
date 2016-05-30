@@ -35,11 +35,15 @@
 #include "../structural/ExtQueueSIM.h"
 #include "TestbedRdI.h"
 #include "TestbedWrI.h"
+#include "QueueRdI.h"
+#include "QueueWrI.h"
 
 template<typename T>
 class ExtQueue:
 public TestbedRdI<T>,
 public TestbedWrI<T>,
+public QueueRdI<T>,
+public QueueWrI<T>,
 public ExtQueueSIM {
  public:
   /* CE Consturctor */

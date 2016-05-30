@@ -16,9 +16,33 @@ set(SOURCE_FILES
   ${BEHAVIOURAL_SRC}
 )
 
+#Tries Lib
+set ( TLM_TRIES_NAME TlmTries )
+set ( TLM_TRIES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tries )
+set ( TLM_TRIES_PATH ${PROJECT_BINARY_DIR}/tries-build/lib${TLM_TRIES_NAME}.a  )
+if("${CMAKE_VERSION}" VERSION_GREATER 3.2.0.0)
+  ExternalProject_Add(tries
+     SOURCE_DIR ${TLM_TRIES_DIR}/src
+     BINARY_DIR ${PROJECT_BINARY_DIR}/tries-build
+     BUILD_BYPRODUCTS ${PROJECT_BINARY_DIR}/tries-build/libTlmTries.a
+     INSTALL_COMMAND /bin/true
+  )
+else()
+  # Sadly for versions < 3.2 BUILD_BYPRODUCTS and BUILD_ALWAYS don't exist
+  ExternalProject_Add(tries
+     SOURCE_DIR ${TLM_TRIES_DIR}/src
+     BINARY_DIR ${PROJECT_BINARY_DIR}/tries-build
+     INSTALL_COMMAND /bin/true
+  )
+endif()
+set_source_files_properties( ${TLM_TRIES_PATH} PROPERTIES
+   EXTERNAL_OBJECT TRUE
+   GENERATED TRUE
+)
+
 #Executable
-add_executable (${Executable} ${SOURCE_FILES})
-#add_dependencies( ${Executable} )
+add_executable (${Executable} ${SOURCE_FILES} ${TLM_TRIES_PATH})
+add_dependencies( ${Executable} tries )
 
 # Add find_package modules for SystemC and TLM
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/modules/")
@@ -32,12 +56,16 @@ add_definitions (-DSC_INCLUDE_DYNAMIC_PROCESSES)
 
 # Include SystemC, TLM, and third-party headers
 include_directories (
+   ${PFP_P4_INCLUDE_DIRS}
    ${PFPSIM_INCLUDE_DIRS}
+   "${TLM_TRIES_DIR}/src"
    "./"
  )
 
 # Link the appropriate libraries
 target_link_libraries(${Executable}
+   ${PROJECT_BINARY_DIR}/tries-build/libTlmTries.a
+   ${PFP_P4_LIBRARIES}
    ${PFPSIM_LIBRARIES}
    -lpthread
    -lgmp
