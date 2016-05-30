@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,41 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+#ifndef BEHAVIOURAL_RMT_H_
+#define BEHAVIOURAL_RMT_H_
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include <string>
+#include "structural/RMTSIM.h"
+#include "MatchStageConfig.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class RMT: public RMTSIM {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
+  SC_HAS_PROCESS(RMT);
   /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  explicit RMT(sc_module_name nm, pfp::core::PFPObject* parent = 0,
+        std::string configfile = "");
   /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  virtual ~RMT() = default;
 
  public:
   void init();
+  // For ControlPlaneAgentS
+  std::shared_ptr<pfp::cp::CommandResult> send_command(
+        const std::shared_ptr<pfp::cp::Command> & cmd) override;
 
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
+  void RMT_PortServiceThread();
+  void RMTThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
 
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
+  std::vector<MatchStageConfig> ingress_match_stages;
+  std::vector<MatchStageConfig> egress_match_stages;
 
-  PcapLogger *pcapLogger;
+  // parses the P4 json file (p4 command line arg),
+  // creates MatchStageConfig objects
+  // determines the toplogical ordering of the tables
+  // from the P4 graph and configures the match stages
+  void configure_match_stages(std::string p4_json_path);
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_RMT_H_

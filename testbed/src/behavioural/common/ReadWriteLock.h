@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,29 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
-#include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#ifndef BEHAVIOURAL_COMMON_READWRITELOCK_H_
+#define BEHAVIOURAL_COMMON_READWRITELOCK_H_
+#include <set>
+#include "systemc.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class ReadWriteLock {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  ReadWriteLock();
 
- public:
-  void init();
+  ReadWriteLock(const ReadWriteLock &) = delete;
+  ReadWriteLock & operator=(const ReadWriteLock &) = delete;
+
+  void read_lock();
+  void read_unlock();
+
+  void write_lock();
+  void write_unlock();
 
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
+  std::set<sc_core::sc_process_b*> readers;
+  sc_core::sc_process_b* writer;
 
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
+  sc_core::sc_event cond;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_COMMON_READWRITELOCK_H_

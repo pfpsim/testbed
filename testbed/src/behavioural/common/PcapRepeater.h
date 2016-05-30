@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,26 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+#ifndef BEHAVIOURAL_COMMON_PCAPREPEATER_H_
+#define BEHAVIOURAL_COMMON_PCAPREPEATER_H_
+
+#include <pcap/pcap.h>
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include <cstdint>
+#include <string>
 
-class TestbedDemux: public TestbedDemuxSIM {
+class PcapRepeater {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  explicit PcapRepeater(std::string inputfile);
+  ~PcapRepeater();
 
- public:
-  void init();
+  bool hasNext();
+  std::vector<uint8_t> getNext();
 
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
+  pcap_t* input;
+  struct pcap_pkthdr pkt_header;
+  const uint8_t* pkt_data;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_COMMON_PCAPREPEATER_H_

@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,27 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+#ifndef BEHAVIOURAL_VLIWACTION_H_
+#define BEHAVIOURAL_VLIWACTION_H_
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include <string>
+#include "structural/VLIWActionSIM.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class VLIWAction: public VLIWActionSIM {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
+  SC_HAS_PROCESS(VLIWAction);
   /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  explicit VLIWAction(sc_module_name nm, pfp::core::PFPObject* parent = 0,
+        std::string configfile = "");
   /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  virtual ~VLIWAction() = default;
 
  public:
   void init();
 
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
+  void VLIWAction_PortServiceThread();
+  void VLIWActionThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
 };
-
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_VLIWACTION_H_

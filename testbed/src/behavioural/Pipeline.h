@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,31 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
+#ifndef BEHAVIOURAL_PIPELINE_H_
+#define BEHAVIOURAL_PIPELINE_H_
 #include <string>
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include "structural/PipelineSIM.h"
+#include "MatchStageConfig.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class Pipeline: public PipelineSIM {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
+  SC_HAS_PROCESS(Pipeline);
   /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  explicit Pipeline(sc_module_name nm, pfp::core::PFPObject* parent = 0,
+        std::string configfile = "");
   /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  virtual ~Pipeline() = default;
 
  public:
   void init();
 
+  void configure(std::vector<MatchStageConfig> config_list);
+
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
+  void Pipeline_PortServiceThread();
+  void PipelineThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_PIPELINE_H_

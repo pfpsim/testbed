@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,36 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
+#ifndef BEHAVIOURAL_MATCHSTAGE_H_
+#define BEHAVIOURAL_MATCHSTAGE_H_
 #include <string>
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include "structural/MatchStageSIM.h"
+#include "MatchStageConfig.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class MatchStage: public MatchStageSIM {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
+  SC_HAS_PROCESS(MatchStage);
   /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  MatchStage(sc_module_name nm, pfp::core::PFPObject* parent = 0,
+        std::string configfile = "");
   /*Destructor*/
-  virtual ~TestbedDemux() = default;
+  virtual ~MatchStage() = default;
 
  public:
   void init();
 
+  void configure(MatchStageConfig config);
+
+  MatchStageConfig config;  // configuration for match stage
+  //! indicates whether the stage as a configuration.
+  //! If not, it is an empty stages
+  bool has_config = false;
+
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
+  void MatchStage_PortServiceThread();
+  void MatchStageThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_MATCHSTAGE_H_

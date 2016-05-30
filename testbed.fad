@@ -1,6 +1,7 @@
+import rmt;
 interface TestbedRdI, TestbedWrI;
 CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
-CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI;
+CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueRdI, QueueWrI;
 
 PE TCPServer("TCPServer.cfg"){
 	TestbedRdI in;
@@ -96,9 +97,13 @@ PE top("TopConfig.cfg") {
   ExtQueue testbed_npu, npu_testbed;
 
   Testbed testbed;
+  RMT rmt;
+  ControlPlane control_plane;
+
+  bind control_plane.cpa {rmt};
 
   bind testbed.out {testbed_npu};
-  // BIND TO THE INGRESS OF THE NPU MODEL
-  // BIND TO THE EGRESS OF THE NPU MODEL
-  bind testbed.in  {testbed_npu};
+  bind rmt.rmt_in {testbed_npu};
+  bind rmt.rmt_out {npu_testbed};
+  bind testbed.in  {npu_testbed};
 };

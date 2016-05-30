@@ -1,3 +1,33 @@
+#
+# simple-rmt: Example RMT simulation model using the PFPSim Framework
+#
+# Copyright (C) 2016 Concordia Univ., Montreal
+#     Samar Abdi
+#     Umair Aftab
+#     Gordon Bailey
+#     Faras Dewal
+#     Shafigh Parsazad
+#     Eric Tremblay
+#
+# Copyright (C) 2016 Ericsson
+#     Bochra Boughzala
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
+
 cmake_minimum_required (VERSION 2.8.7)
 set(ProjectName
   "testbed"
@@ -16,12 +46,33 @@ set(SOURCE_FILES
   ${BEHAVIOURAL_SRC}
 )
 
-#Executable
-add_executable (${Executable} ${SOURCE_FILES})
-#add_dependencies( ${Executable} )
+#Tries Lib
+set ( TLM_TRIES_NAME TlmTries )
+set ( TLM_TRIES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tries )
+set ( TLM_TRIES_PATH ${PROJECT_BINARY_DIR}/tries-build/lib${TLM_TRIES_NAME}.a  )
+if("${CMAKE_VERSION}" VERSION_GREATER 3.2.0.0)
+  ExternalProject_Add(tries
+     SOURCE_DIR ${TLM_TRIES_DIR}/src
+     BINARY_DIR ${PROJECT_BINARY_DIR}/tries-build
+     BUILD_BYPRODUCTS ${PROJECT_BINARY_DIR}/tries-build/libTlmTries.a
+     INSTALL_COMMAND /bin/true
+  )
+else()
+  # Sadly for versions < 3.2 BUILD_BYPRODUCTS and BUILD_ALWAYS don't exist
+  ExternalProject_Add(tries
+     SOURCE_DIR ${TLM_TRIES_DIR}/src
+     BINARY_DIR ${PROJECT_BINARY_DIR}/tries-build
+     INSTALL_COMMAND /bin/true
+  )
+endif()
+set_source_files_properties( ${TLM_TRIES_PATH} PROPERTIES
+   EXTERNAL_OBJECT TRUE
+   GENERATED TRUE
+)
 
-# Add find_package modules for SystemC and TLM
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/modules/")
+#Executable
+add_executable (${Executable} ${SOURCE_FILES} ${TLM_TRIES_PATH})
+add_dependencies(${Executable} tries)
 
 # Find Packages
 find_package(pfpsim REQUIRED)
@@ -32,15 +83,19 @@ add_definitions (-DSC_INCLUDE_DYNAMIC_PROCESSES)
 
 # Include SystemC, TLM, and third-party headers
 include_directories (
-   ${PFPSIM_INCLUDE_DIRS}
+  ${PFP_P4_INCLUDE_DIRS}
+  ${PFPSIM_INCLUDE_DIRS}
+  "${TLM_TRIES_DIR}/src"
    "./"
  )
 
 # Link the appropriate libraries
 target_link_libraries(${Executable}
-   ${PFPSIM_LIBRARIES}
-   -lpthread
-   -lgmp
+    ${PROJECT_BINARY_DIR}/tries-build/libTlmTries.a
+    ${PFP_P4_LIBRARIES}
+    ${PFPSIM_LIBRARIES}
+    -lpthread
+    -lgmp
   )
 
 #-----------IDEs (especially VS)------------------------------------------------

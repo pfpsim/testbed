@@ -9,5 +9,7 @@ add_subdirectory(common)
 set (BEHAVIOURAL_SRC
 ${COMMON_SRC}
 ${BEHAVIOURALGENSRCS} #List of sources from GeneratedSources.cmake [PFPGEN]
+${CMAKE_CURRENT_SOURCE_DIR}/MemoryPool.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/RMTMessages.cpp
 PARENT_SCOPE
 )

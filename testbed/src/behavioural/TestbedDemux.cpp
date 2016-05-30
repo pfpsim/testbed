@@ -50,19 +50,37 @@ void TestbedDemux::TestbedDemuxThread(std::size_t thread_id) {
 }
 void TestbedDemux::processPacketStream() {
   while (true) {
-    std::shared_ptr<TestbedPacket> outgoing =
-     std::dynamic_pointer_cast<TestbedPacket>(in->get());
-    size_t portNumber = outgoing->getEgressPort() - 1;
-    if (portNumber >= out.size()) {
-      npulog(profile, cout << "FATAL: Going for port number: "
-      << portNumber << endl;)
-      // reinsertPacket(outgoing);
-      assert(false);
-    } else {
-      npulog(profile, cout << "Going for port number: " << portNumber
-      << endl;)
-      out[portNumber]->put(outgoing);
-      pcapLogger->logPacket(outgoing->getData(), sc_time_stamp());
+    auto incoming_packet = in->get();
+
+    if (std::dynamic_pointer_cast<PacketHeaderVector>(incoming_packet)) {
+      std::shared_ptr<PacketHeaderVector> phv
+            = std::dynamic_pointer_cast<PacketHeaderVector>(incoming_packet);
+      npulog(profile, cout << module_name() << " received packet "
+            << phv->id() << endl;)
+      npulog(normal, cout << module_name() << " received packet "
+            << phv->id() << endl;)
+      std::shared_ptr<TestbedPacket> testbed_packet =
+        std::make_shared<TestbedPacket>();
+      uint8_t *startData = reinterpret_cast<uint8_t*>
+        (phv->packet()->data());
+      uint8_t *endData = reinterpret_cast<uint8_t*>
+        (phv->packet()->data() + phv->packet()->get_data_size());
+      testbed_packet->setData().insert(testbed_packet->setData().begin(),
+        startData, endData);
+      int egress_port =
+        phv->phv()->get_field("standard_metadata.egress_port").get_int() - 1;
+      testbed_packet->setEgressPort(egress_port);
+      if (egress_port >= out.size()) {
+        npulog(profile, cout << "FATAL: Going for port number: "
+          << egress_port << endl;)
+        // reinsertPacket(outgoing);
+        assert(false);
+      } else {
+        npulog(profile, cout << "Going for port number: " << egress_port
+          << endl;)
+        out[egress_port]->put(testbed_packet);
+        pcapLogger->logPacket(testbed_packet->getData(), sc_time_stamp());
+      }
     }
   }
 }

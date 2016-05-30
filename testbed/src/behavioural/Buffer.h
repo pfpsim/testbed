@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,34 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+#ifndef BEHAVIOURAL_BUFFER_H_
+#define BEHAVIOURAL_BUFFER_H_
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include <string>
+#include "structural/BufferSIM.h"
+#include "pfpsim/core/TrType.h"
+#include "pfpsim/core/MTQueue.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+class Buffer: public BufferSIM {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
+  SC_HAS_PROCESS(Buffer);
   /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  explicit Buffer(sc_module_name nm, pfp::core::PFPObject* parent = 0,
+        std::string configfile = "");
   /*Destructor*/
-  virtual ~TestbedDemux() = default;
-
+  virtual ~Buffer() = default;
  public:
   void init();
-
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
+  void Buffer_PortServiceThread();
+  void BufferThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
 
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
+  //! queue to hold packets as they are read by buffer
+  MTQueue<std::shared_ptr<pfp::core::TrType>> buffer_queue;
+  bool flag_buffer_empty = true;  //! indicates if the queue is empty
+  //! used to wake BufferThread when a new packet is added to the queue
+  sc_event condition;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+#endif  // BEHAVIOURAL_BUFFER_H_

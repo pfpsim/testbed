@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,45 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
-#include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#ifndef BEHAVIOURAL_TCAMS_H_
+#define BEHAVIOURAL_TCAMS_H_
 
-class TestbedDemux: public TestbedDemuxSIM {
- public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
+#include "systemc.h"
+#include "tlm.h"
+#include "tries/src/BitString.h"
 
+using tlm::tlm_tag;
+
+class TcamEntry {
  public:
-  void init();
+  explicit TcamEntry(BitString d = "", bool v = true);
+
+  // Getters
+  BitString getData() const;
+  bool getValid() const;
+
+  // Setters
+  void setData(BitString d);
+  void setValid(bool v);
 
  private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
+  BitString data;
+  bool valid;
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+class TcamS : public sc_interface {
+ public:
+  /* User Logic - Virtual Functions for interface go here */
+  virtual void insert(BitString prefix, unsigned int pos) = 0;
+  virtual void insertAndShift(BitString prefix, unsigned int pos) = 0;
+
+  virtual int exactSearch(BitString prefix) = 0;
+  virtual int search(BitString prefix) = 0;
+
+  virtual void remove(unsigned int pos) = 0;
+  virtual void removeAndShift(unsigned int pos) = 0;
+
+  virtual BitString read(unsigned int pos) = 0;
+};
+
+#endif  // BEHAVIOURAL_TCAMS_H_

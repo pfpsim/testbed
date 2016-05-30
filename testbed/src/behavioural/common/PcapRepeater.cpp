@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,40 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+#include "PcapRepeater.h"
+#include <algorithm>
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
+#include <string>
+#include "pfpsim/pfpsim.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
- public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
+PcapRepeater::PcapRepeater(std::string inputfile) {
+  char errbuf[PCAP_ERRBUF_SIZE];
 
- public:
-  void init();
+  input = pcap_open_offline((inputfile).c_str(), errbuf);
 
- private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
+  if (!input) {
+    std::cout << "Could not open pcap_input file "
+          << inputfile << "(" << errbuf << ")" << std::endl;
+    assert(input);
+  }
 
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
+  pkt_data = pcap_next(input, &pkt_header);
+}
 
-  PcapLogger *pcapLogger;
-};
+PcapRepeater::~PcapRepeater() {
+  pcap_close(input);
+}
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+bool PcapRepeater::hasNext() {
+  return !!pkt_data;
+}
+
+std::vector<uint8_t> PcapRepeater::getNext() {
+  std::vector<uint8_t> vec(pkt_header.caplen);
+  if (pkt_data) {
+    std::copy(pkt_data, pkt_data + pkt_header.caplen, vec.begin());
+    pkt_data = pcap_next(input, &pkt_header);
+  }
+
+  return vec;
+}

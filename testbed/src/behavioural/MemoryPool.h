@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,49 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
-#include <string>
+/**
+ * @file MemoryPool.h
+ * Memory pool object
+ *
+ * Created on: April 11, 2016
+ * Author: Eric Tremblay
+ */
+
+#ifndef BEHAVIOURAL_MEMORYPOOL_H_
+#define BEHAVIOURAL_MEMORYPOOL_H_
+
+#include <iostream>
+#include <map>
 #include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
+typedef std::size_t TLMAddress;
+
+class MemoryPoolBlock {
  public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
-
- public:
-  void init();
-
- private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
-
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
-
-  PcapLogger *pcapLogger;
+  MemoryPoolBlock *next_block;
+  TLMAddress addr;  /*!< Address of where the data for this block is found */
 };
 
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+/**
+ * Memory Pool class with virtual address space. It is up to the user to translate the address used by this object to physical addresses and back.
+ */
+class MemoryPool {
+ public:
+  MemoryPool(TLMAddress start_addr, int num_blks, int blksize);
+
+  TLMAddress get();
+
+  void put(TLMAddress addr);
+
+  TLMAddress getAddr() const;
+
+ private:
+  MemoryPoolBlock *free_list;
+  int blksize;
+  int num_blks;
+  int num_free;
+  std::vector<MemoryPoolBlock> memory_pool_block_list;
+  std::map<TLMAddress, MemoryPoolBlock*> block_map;
+};
+
+#endif  // BEHAVIOURAL_MEMORYPOOL_H_

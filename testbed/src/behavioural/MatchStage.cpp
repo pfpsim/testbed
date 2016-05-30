@@ -1,5 +1,5 @@
 /*
- * testbed: Simulation environment for PFPSim Framework models
+ * simple-rmt: Example RMT simulation model using the PFPSim Framework
  *
  * Copyright (C) 2016 Concordia Univ., Montreal
  *     Samar Abdi
@@ -28,37 +28,25 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_TESTBEDDEMUX_H_
-#define BEHAVIOURAL_TESTBEDDEMUX_H_
+#include "MatchStage.h"
 #include <string>
-#include <vector>
-#include "../structural/TestbedDemuxSIM.h"
-#include "common/TestbedUtilities.h"
-#include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
-#include "PacketHeaderVector.h"
 
-class TestbedDemux: public TestbedDemuxSIM {
- public:
-  SC_HAS_PROCESS(TestbedDemux);
-  /*Constructor*/
-  TestbedDemux(sc_module_name nm , int outPortSize , pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
-  /*Destructor*/
-  virtual ~TestbedDemux() = default;
+MatchStage::MatchStage(sc_module_name nm, pfp::core::PFPObject* parent,
+      std::string configfile):MatchStageSIM(nm, parent, configfile) {
+    /*sc_spawn threads*/
+}
 
- public:
-  void init();
+void MatchStage::init() {
+    init_SIM(); /* Calls the init of sub PE's and CE's */
+}
 
- private:
-  void TestbedDemux_PortServiceThread();
-  void TestbedDemuxThread(std::size_t thread_id);
-  std::vector<sc_process_handle> ThreadHandles;
+void MatchStage::MatchStage_PortServiceThread() {
+}
 
-  void analyzeMetrics();
-  void processPacketStream();
-  void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
+void MatchStage::MatchStageThread(std::size_t thread_id) {
+}
 
-  PcapLogger *pcapLogger;
-};
-
-#endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
+void MatchStage::configure(MatchStageConfig config) {
+  this->config = config;
+  has_config = true;
+}
