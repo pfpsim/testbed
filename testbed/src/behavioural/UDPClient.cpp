@@ -38,12 +38,12 @@ UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string
   std::istringstream cf(configfile);
   TestbedUtilities util;
   populateLocalMap();
-  ncs = util.getClientConfigurations(localMap, configfile);
+  ncs = util.getClientConfigurations(local_map, configfile);
   if (ncs.archive) {
     std::string full_name;
     getline(cf, full_name, '.');
     full_name.append("_client.pcap");
-    pcapLogger = std::make_shared<PcapLogger>(full_name.c_str());
+    pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
   addClientInstances();
   /*sc_spawn threads*/
@@ -67,39 +67,39 @@ void UDPClient::UDPClientThread(std::size_t thread_id) {
 }
 void UDPClient::populateLocalMap() {
   std::string tempstr = GetParameter("type").get();
-  localMap.insert(std::pair<std::string, std::string>("type", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("type", tempstr));
   tempstr = GetParameter("simulationTime").get();
-  localMap.insert(std::pair<std::string, std::string>
+  local_map.insert(std::pair<std::string, std::string>
     ("simulationTime", tempstr));
   tempstr = GetParameter("virtualInstances").get();
-  localMap.insert(std::pair<std::string, std::string>
+  local_map.insert(std::pair<std::string, std::string>
     ("virtualInstances", tempstr));
   tempstr = GetParameter("archive").get();
-  localMap.insert(std::pair<std::string, std::string>("archive", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("archive", tempstr));
   tempstr = GetParameter("headers").get();
-  localMap.insert(std::pair<std::string, std::string>("headers", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("headers", tempstr));
   tempstr = GetParameter("delays").get();
-  localMap.insert(std::pair<std::string, std::string>("delays", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("delays", tempstr));
   tempstr = GetParameter("delayUnit").get();
-  localMap.insert(std::pair<std::string, std::string>("delayUnit", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("delayUnit", tempstr));
   tempstr = GetParameter("delayDist").get();
-  localMap.insert(std::pair<std::string, std::string>("delayDist", tempstr));
-  tempstr = GetParameter("dnspolicy").get();
-  localMap.insert(std::pair<std::string, std::string>("dnspolicy", tempstr));
-  tempstr = GetParameter("dnsmsq").get();
-  localMap.insert(std::pair<std::string, std::string>("dnsmsq", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("delayDist", tempstr));
+  tempstr = GetParameter("dhcpPolicy").get();
+  local_map.insert(std::pair<std::string, std::string>("dhcpPolicy", tempstr));
+  tempstr = GetParameter("dhcpPool").get();
+  local_map.insert(std::pair<std::string, std::string>("dhcpPool", tempstr));
   tempstr = GetParameter("tos").get();
-  localMap.insert(std::pair<std::string, std::string>("tos", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("tos", tempstr));
   tempstr = GetParameter("ttl").get();
-  localMap.insert(std::pair<std::string, std::string>("ttl", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("ttl", tempstr));
   tempstr =  GetParameter("sport").get();
-  localMap.insert(std::pair<std::string, std::string>("sport", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("sport", tempstr));
   tempstr = GetParameter("dport").get();
-  localMap.insert(std::pair<std::string, std::string>("dport", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("dport", tempstr));
   tempstr = GetParameter("se_addr").get();
-  localMap.insert(std::pair<std::string, std::string>("se_addr", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("se_addr", tempstr));
   tempstr = GetParameter("dnsserver").get();
-  localMap.insert(std::pair<std::string, std::string>("dnsserver", tempstr));
+  local_map.insert(std::pair<std::string, std::string>("dnsserver", tempstr));
 }
 // Administrative methods
 void UDPClient::addClientInstances() {
@@ -114,7 +114,7 @@ void UDPClient::addClientInstances() {
     cdet.active = false;
     cdet.fileIndex = -1;
     cdet.delayIndex = -1;
-    clientDetails.insert(std::pair<std::string, struct ConnectionDetails>
+    client_instances.insert(std::pair<std::string, struct ConnectionDetails>
       (clientID, cdet));
   }
 }
@@ -155,7 +155,7 @@ void UDPClient::activateClientInstance_thread() {
     }
     // size_t activeClients = 0;
     for (std::map<std::string, struct ConnectionDetails>::iterator it
-    = clientDetails.begin(); it != clientDetails.end(); ++it) {
+    = client_instances.begin(); it != client_instances.end(); ++it) {
       if (!it->second.active) {
         npulog(profile, cout << "Activating a client Instance." << endl;)
         // Either add or activate a instance from allClientDetails map  and
@@ -179,8 +179,8 @@ void UDPClient::activateClientInstance_thread() {
         it->second.active = true;
         npulog(profile, cout << "Activating: " << it->first << endl;)
         // Initiate sending of the SYN packet
-        receivedPacket = NULL;
-        requestServerInstance(it->first);
+        received_packet = NULL;
+        acquireServerInstance(it->first);
         // establishConnection(it->first);
       }
     }
@@ -203,7 +203,7 @@ void UDPClient::scheduler_thread() {
   // If the current time reaches the simulation end time, or if the number
   // of received files will equal the configured file transfers, the instances
   // will be stopped from spawnning by the addNewClientInstance
-  if (clientDetails.empty()) {
+  if (client_instances.empty()) {
     // This thread cannot be executed like this :)
     wait(SC_ZERO_TIME);
   }
@@ -235,7 +235,7 @@ void UDPClient::scheduler_thread() {
     sc_time minTime;
     std::string minTimeCID;
     for (std::map<std::string, ConnectionDetails>::iterator it =
-      clientDetails.begin(); it != clientDetails.end(); ++it) {
+      client_instances.begin(); it != client_instances.end(); ++it) {
       if (it->second.connection_state == idle) {
         if (it->second.wakeup <= sc_time_stamp()) {
           it->second.active = false;
@@ -262,16 +262,16 @@ void UDPClient::scheduler_thread() {
       }
     }
     if (!clWakeup) {
-      if (idleInstances == clientDetails.size() && !clientDetails.empty()) {
+      if (idleInstances == client_instances.size() && !client_instances.empty()) {
          npulog(profile, cout << "All client instances are idle["
          << idleInstances << "]! Going for a wait now for "
          << minTime << " ! " << endl;)
          wait(minTime);
-         clientDetails.find(minTimeCID)->second.active = false;
+         client_instances.find(minTimeCID)->second.active = false;
          // FOR ALL OTHER client instances which are also idle state,
          // this amount should be deducted
          for (std::map<std::string, ConnectionDetails>::iterator it
-           = clientDetails.begin(); it != clientDetails.end(); ++it) {
+           = client_instances.begin(); it != client_instances.end(); ++it) {
            if (it->second.connection_state == idle) {
              it->second.idle_pending -= minTime;
            }
@@ -295,7 +295,7 @@ void UDPClient::outgoingPackets_thread() {
   bool gotStuck = false;
   while (true) {
     std::shared_ptr<TestbedPacket> packet =
-    std::dynamic_pointer_cast<TestbedPacket>(outgoingPackets.pop());
+    std::dynamic_pointer_cast<TestbedPacket>(outgoing_packets.pop());
     if (!out->nb_can_put()) {
       npulog(profile, cout << "Client stuck at MUX Ingress!"
           << " This is bad! Logical Time: " << sc_time_stamp() << endl;)
@@ -303,7 +303,7 @@ void UDPClient::outgoingPackets_thread() {
     }
     out->put(packet);
     if (ncs.archive) {
-      pcapLogger->logPacket(packet->setData(), sc_time_stamp());
+      pcap_logger->logPacket(packet->setData(), sc_time_stamp());
     }
     if (gotStuck) {
       npulog(profile, cout << "Client resumed packet flow to ingress of MUX"
@@ -315,21 +315,21 @@ void UDPClient::outgoingPackets_thread() {
 // Behavioral methods
 void UDPClient::validatePacketDestination_thread() {
   while (true) {
-    receivedPacket = std::dynamic_pointer_cast<TestbedPacket>(in->get());
+    received_packet = std::dynamic_pointer_cast<TestbedPacket>(in->get());
     TestbedUtilities util;
-    std::string clientID = util.getIPAddress(receivedPacket->getData(),
+    std::string clientID = util.getIPAddress(received_packet->getData(),
     ncs.list, "dst");
     struct ConnectionDetails cdet;
-    if (clientDetails.find(clientID) == clientDetails.end()) {
+    if (client_instances.find(clientID) == client_instances.end()) {
       npulog(profile, cout << "Strange! We got a packet we have nothing to"
       << " do with! Destined for: " <<clientID<< "! Ignored" << endl;)
       continue;
     } else {
-      cdet = clientDetails.find(clientID)->second;
+      cdet = client_instances.find(clientID)->second;
     }
     switch (cdet.connection_state) {
       case serverQuery:
-        requestServerInstance("0");
+        acquireServerInstance("0");
         break;
       case connectionSetup:
         // No connectionSetup is required for UDP connections
@@ -356,19 +356,19 @@ void UDPClient::validatePacketDestination_thread() {
     }
   }
 }
-void UDPClient::requestServerInstance(std::string clientID) {
+void UDPClient::acquireServerInstance(std::string clientID) {
   TestbedUtilities util;
   std::vector<std::string> hdrList;
   hdrList.push_back("ethernet_t");
   hdrList.push_back("ipv4_t");
   hdrList.push_back("udp_t");
   hdrList.push_back("dns_t");
-  if (receivedPacket == NULL) {
+  if (received_packet == NULL) {
     std::shared_ptr<TestbedPacket> reqPacket =
       std::make_shared<TestbedPacket>();
     std::shared_ptr<TestbedPacket> resPacket =
       std::make_shared<TestbedPacket>();
-    struct ConnectionDetails *cdet = &clientDetails.find(clientID)->second;
+    struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     reqPacket->setData().insert(reqPacket->setData().begin(),
       cdet->received_header.begin(),
       cdet->received_header.end());
@@ -376,16 +376,16 @@ void UDPClient::requestServerInstance(std::string clientID) {
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
       GetParameter("se_addr").get());
     util.finalizePacket(resPacket, hdrList);
-    outgoingPackets.push(resPacket);
+    outgoing_packets.push(resPacket);
   } else {
-    std::string serverID = util.getDNSResponse(receivedPacket, hdrList);
-    clientID = util.getIPAddress(receivedPacket->getData(),
+    std::string serverID = util.getDNSResponse(received_packet, hdrList);
+    clientID = util.getIPAddress(received_packet->getData(),
       hdrList, "dst");
     npulog(profile, cout << "Client received DNS response. Client " << clientID
       << " is assigned with server " << serverID << endl;)
-    struct ConnectionDetails *cdet = &clientDetails.find(clientID)->second;
+    struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
-    receivedPacket = NULL;
+    received_packet = NULL;
     establishConnection(clientID, serverID);
   }
 }
@@ -394,11 +394,11 @@ void UDPClient::establishConnection(std::string clientID,
   // When a client is instantiated it sends a fileID to the server as a
   // part of the file request
   TestbedUtilities util;
-  if (receivedPacket == NULL) {
+  if (received_packet == NULL) {
     // Send the fileID
     std::shared_ptr<TestbedPacket> reqPacket
     = std::make_shared<TestbedPacket>();
-    struct ConnectionDetails *cdet = &clientDetails.find(clientID)->second;
+    struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     reqPacket->setData().insert(reqPacket->setData().begin(),
       cdet->received_header.begin(),
       cdet->received_header.end());
@@ -410,7 +410,7 @@ void UDPClient::establishConnection(std::string clientID,
       << util.getIPAddress(reqPacket->getData(), ncs.list, "dst")
       << " as part of file request!" << endl;)
     util.finalizePacket(reqPacket, ncs.list);
-    outgoingPackets.push(reqPacket);
+    outgoing_packets.push(reqPacket);
     cdet->connection_state = fileResponse;
   }
 }
@@ -422,8 +422,8 @@ void UDPClient::registerFile() {
   // Store the value of the payload in the cdet structure
   // Change state to fileTransfer
   TestbedUtilities util;
-  size_t pktsize = receivedPacket->setData().size();
-  std::string clientID = util.getIPAddress(receivedPacket->getData(),
+  size_t pktsize = received_packet->setData().size();
+  std::string clientID = util.getIPAddress(received_packet->getData(),
   ncs.list, "dst");
   // Checking for payload of 1 byte
   size_t headerLen = util.getHeaderLength(ncs.list);
@@ -432,7 +432,7 @@ void UDPClient::registerFile() {
   if (payloadLen == 4) {
     uint32_t *fsptr =
     static_cast<uint32_t*>(
-      static_cast<void*>(receivedPacket->setData().data()+headerLen));
+      static_cast<void*>(received_packet->setData().data()+headerLen));
     fileSize = *fsptr;
   } else {
     // We are expecting a file size of 4 bytesfrom the server
@@ -441,7 +441,7 @@ void UDPClient::registerFile() {
   }
   npulog(profile, cout << "Client received filesize of the requested fileID:"
   << fileSize << endl;)
-  struct ConnectionDetails *cdet = &clientDetails.find(clientID)->second;
+  struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileProcessing;
   cdet->file_pending = fileSize;
 }
@@ -451,13 +451,13 @@ void UDPClient::processFile() {
   // idle phase, where we calculate the idlePending time and then our client
   // instance goes for a sleep.
   TestbedUtilities util;
-  size_t pktsize = receivedPacket->setData().size();
+  size_t pktsize = received_packet->setData().size();
   std::string clientID =
-    util.getIPAddress(receivedPacket->getData(), ncs.list, "dst");
+    util.getIPAddress(received_packet->getData(), ncs.list, "dst");
   size_t headerLen = util.getHeaderLength(ncs.list);
   size_t payloadLen = pktsize - headerLen;
 
-  struct ConnectionDetails *cdet = &clientDetails.find(clientID)->second;
+  struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->file_pending -= payloadLen;
 
   npulog(profile, cout << "Client received file packet. Pending payload: "

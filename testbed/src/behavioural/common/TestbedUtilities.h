@@ -239,12 +239,12 @@ class TestbedUtilities {
   uint16_t calculateTCPChecksum(std::shared_ptr<TestbedPacket> pkt, int hdrPos,
     uint8_t protocol, struct ip *ipptr);
   std::vector<std::string> getBaseIPs(const AddrType &addrType);
-  // util.updateAddress(receivedPacket, ncs.list, it->second, "dst");
+  // util.updateAddress(received_packet, ncs.list, it->second, "dst");
   void updateAddress(std::shared_ptr<TestbedPacket> pkt,
     const std::vector<std::string> &headers, const std::string &newAddress,
     const std::string &type);
 
-  std::vector<std::string> getIPv4List(std::string dnsmsq, int maxListSize,
+  std::vector<std::string> getIPv4List(std::string dhcpPool, int maxListSize,
     int initIndex);
   std::vector<std::string> interleaveVectors(
     const std::vector<std::vector<std::string> >& cps2);

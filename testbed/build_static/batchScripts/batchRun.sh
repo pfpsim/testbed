@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # testbed: Simulation environment for PFPSim Framework models
 #
@@ -27,8 +28,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 #
-
-#!/bin/bash
 ################################################################################
 #Bash script to execute the model over varying client-server loads
 #Author: f_dewal@encs.concordia.ca

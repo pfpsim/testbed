@@ -32,7 +32,7 @@
 #include <string>
 
 TestbedMux::TestbedMux(sc_module_name nm , int inPortSize, pfp::core::PFPObject* parent, std::string configfile):TestbedMuxSIM(nm ,inPortSize,parent,configfile) {  // NOLINT
-    pcapLogger = new PcapLogger("ingress_sctime.pcap");
+    pcap_logger = new PcapLogger("ingress_sctime.pcap");
     packetCount = 0;
     /*sc_spawn threads*/
     for (size_t index = 0; index < inPortSize; index++) {
@@ -54,7 +54,7 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
     std::dynamic_pointer_cast<TestbedPacket>(in[port_num]->get());
     muxLock.lock();
     packetCount++;
-    pcapLogger->logPacket(packet->getData(), sc_time_stamp());
+    pcap_logger->logPacket(packet->getData(), sc_time_stamp());
 
     packet->setIngressPort(port_num);
 
@@ -105,7 +105,7 @@ void TestbedMux::packetLoop_thread() {
     std::shared_ptr<TestbedPacket> packet =
     std::dynamic_pointer_cast<TestbedPacket>(loop_in->get());
     muxLock.lock();
-    pcapLogger->logPacket(packet->getData(), sc_time_stamp());
+    pcap_logger->logPacket(packet->getData(), sc_time_stamp());
     incomingPackets.push(packet);
     muxLock.unlock();
   }

@@ -65,7 +65,7 @@ class TCPClient: public TCPClientSIM {
   void scheduler_thread();
 
   // Behavioral methods
-  void requestServerInstance(std::string clientID);
+  void acquireServerInstance(std::string clientID);
   void establishConnection(std::string clientID = NULL,
     std::string serverID = NULL);
   void requestFile();
@@ -75,12 +75,12 @@ class TCPClient: public TCPClientSIM {
 
  private:
   sc_event activate_client_instance_event;
-  std::map<std::string, std::string> localMap;
-  std::shared_ptr<PcapLogger> pcapLogger;
+  std::map<std::string, std::string> local_map;
+  std::shared_ptr<PcapLogger> pcap_logger;
   ClientConfigStruct ncs;
-  MTQueue<std::shared_ptr<pfp::core::TrType> > outgoingPackets;
-  std::map<std::string, struct ConnectionDetails> clientDetails;
-  std::shared_ptr<TestbedPacket> receivedPacket;
+  MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
+  std::map<std::string, struct ConnectionDetails> client_instances;
+  std::shared_ptr<TestbedPacket> received_packet;
 };
 
 #endif  // BEHAVIOURAL_TCPCLIENT_H_

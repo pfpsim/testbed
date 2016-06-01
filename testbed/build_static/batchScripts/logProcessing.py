@@ -1,3 +1,31 @@
+# testbed: Simulation environment for PFPSim Framework models
+#
+# Copyright (C) 2016 Concordia Univ., Montreal
+#     Samar Abdi
+#     Umair Aftab
+#     Gordon Bailey
+#     Faras Dewal
+#     Shafigh Parsazad
+#     Eric Tremblay
+#
+# Copyright (C) 2016 Ericsson
+#     Bochra Boughzala
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
 import time
 import os
 import math
@@ -82,41 +110,41 @@ for dindex in range(1, 400):
        max_load_15=temp
      if(line == 6):
       elements=fline.split(',')
-      
+
       temp=float(elements[0].split(':')[1].strip().split()[0].strip())
       cpu_us.append(temp)
       if(temp > max_cpu_us):
-       max_cpu_us = temp 
-      
+       max_cpu_us = temp
+
       temp=float(elements[1].strip().split()[0])
       cpu_sy.append(temp)
       if(temp > max_cpu_sy):
-       max_cpu_sy = temp 
-      
+       max_cpu_sy = temp
+
       temp=float(elements[2].strip().split()[0])
       cpu_ni.append(temp)
       if(temp > max_cpu_ni):
-       max_cpu_ni = temp 
-      
+       max_cpu_ni = temp
+
       temp=float(elements[3].strip().split()[0])
       cpu_id.append(temp)
       if(temp > max_cpu_id):
-       max_cpu_id = temp 
-      
+       max_cpu_id = temp
+
       temp=float(elements[4].strip().split()[0])
       cpu_wa.append(temp)
       if(temp > max_cpu_wa):
-       max_cpu_wa = temp 
-      
+       max_cpu_wa = temp
+
       temp=float(elements[5].strip().split()[0])
       cpu_hi.append(temp)
       if(temp > max_cpu_hi):
-       max_cpu_hi = temp 
-      
+       max_cpu_hi = temp
+
       temp=float(elements[6].strip().split()[0])
       cpu_si.append(temp)
       if(temp > max_cpu_si):
-       max_cpu_si = temp 
+       max_cpu_si = temp
 
      if(line == 7):
       elements=fline.split(',')
@@ -128,8 +156,8 @@ for dindex in range(1, 400):
       mem_use.append(temp)
       if(temp > max_mem_use):
        max_mem_use=temp
-	  
-  
+
+
      if(line > 10):
       elements=fline.split()
       if(elements[14]=="3"):

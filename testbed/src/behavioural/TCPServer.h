@@ -58,7 +58,7 @@ class TCPServer: public TCPServerSIM {
   void populateLocalMap();
   void validatePacketSource_thread();
   void outgoingPackets_thread();
-  void datarateManagement_thread();
+  void datarateManager_thread();
   std::string serverSessionsManager();
   void assignServer();
 
@@ -69,13 +69,13 @@ class TCPServer: public TCPServerSIM {
   void teardownConnection();
 
  private:
-  std::shared_ptr<TestbedPacket> receivedPacket;
-  std::map<std::string, std::string> localMap;
-  std::shared_ptr<PcapLogger> pcapLogger;
+  std::shared_ptr<TestbedPacket> received_packet;
+  std::map<std::string, std::string> local_map;
+  std::shared_ptr<PcapLogger> pcap_logger;
   ServerConfigStruct ncs;
-  MTQueue<std::shared_ptr<pfp::core::TrType> > outgoingPackets;
-  std::map<std::string, struct ConnectionDetails> clientDetails;
-  std::map<std::string, size_t> serverSessions;
+  MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
+  std::map<std::string, struct ConnectionDetails> client_instances;
+  std::map<std::string, size_t> server_sessions;
 };
 
 #endif  // BEHAVIOURAL_TCPSERVER_H_

@@ -57,7 +57,7 @@ class TestbedDemux: public TestbedDemuxSIM {
   void processPacketStream();
   void reinsertPacket(std::shared_ptr<TestbedPacket> packet);
 
-  PcapLogger *pcapLogger;
+  PcapLogger *pcap_logger;
 };
 
 #endif  // BEHAVIOURAL_TESTBEDDEMUX_H_
