@@ -145,7 +145,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     std::vector<std::string> clientIPs;  // , serverIPs;
     std::string serverIP;
 
-    tempstr = configMap.find("dnspolicy")->second;
+    tempstr = configMap.find("dhcpPolicy")->second;
     tempvec = getStringVector(tempstr);
     std::string cl_dnsdist = tempvec.at(0);
     double cl_dnsp1, cl_dnsp2;
@@ -161,7 +161,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     tempvec.clear();
 
     std::map<int, int> cl_dnsfreq;
-    tempstr = configMap.find("dnsmsq")->second;
+    tempstr = configMap.find("dhcpPool")->second;
     tempvec = getStringVector(tempstr);
 
     int rnum = -1;
@@ -201,7 +201,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     tempvec.clear();
 
 /*
-    tempstr = configMap.find("se_dnspolicy")->second;
+    tempstr = configMap.find("se_dhcpPolicy")->second;
     tempvec = getStringVector(tempstr);
     std::string se_dnsdist = tempvec.at(0);
     double se_dnsp1, se_dnsp2;
@@ -217,7 +217,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     tempvec.clear();
 
     std::map<int, int> se_dnsfreq;
-    tempstr = configMap.find("se_dnsmsq")->second;
+    tempstr = configMap.find("se_dhcpPool")->second;
     tempvec = getStringVector(tempstr);
     rnum = -1;
     for (int index = 0; index < headerCount; index++) {
@@ -445,7 +445,7 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
       tempvec.clear();
     }
 
-    tempstr = configMap.find("dnspolicy")->second;
+    tempstr = configMap.find("dhcpPolicy")->second;
     tempvec = getStringVector(tempstr);
     ncs.prefixes.distribution.type = tempvec.at(0);
 
@@ -462,7 +462,7 @@ ServerConfigStruct TestbedUtilities::getServerConfigurations
     }
     tempvec.clear();
 
-    tempstr = configMap.find("dnsmsq")->second;
+    tempstr = configMap.find("dhcpPool")->second;
     ncs.prefixes.prefix_values = getStringVector(tempstr);
 
     tempstr = configMap.find("sizeDist")->second;
@@ -952,13 +952,13 @@ void TestbedUtilities::getResponseHeader
   // struct trackhdr resTrack;
 }
 
-std::vector<std::string> TestbedUtilities::getIPv4List(std::string dnsmsq,
+std::vector<std::string> TestbedUtilities::getIPv4List(std::string dhcpPool,
   int maxListSize, int initIndex) {
   std::vector<std::string> ipv4List;
-  std::stringstream dnsmsqss(dnsmsq);
+  std::stringstream dhcpPoolss(dhcpPool);
   std::string mask, prefix;
-  std::getline(dnsmsqss, mask, '/');
-  std::getline(dnsmsqss, prefix, '/');
+  std::getline(dhcpPoolss, mask, '/');
+  std::getline(dhcpPoolss, prefix, '/');
   std::bitset<32> andMask, orMask;
   std::bitset<32> maskbits, minIP, maxIP;
   int bitsav = 32-stoi(prefix);
@@ -1108,8 +1108,8 @@ std::string TestbedUtilities::getServerInstanceAddress(const AddrType &addrType,
       while (true) {
         int maxIPs = 0;
         std::vector<std::vector<std::string> > allIPS;
-        for (std::string dnsmsq : addrType.prefix_values) {
-          std::vector<std::string> msqips = getIPv4List(dnsmsq, elements,
+        for (std::string dhcpPool : addrType.prefix_values) {
+          std::vector<std::string> msqips = getIPv4List(dhcpPool, elements,
             initIndex);
           allIPS.push_back(msqips);
           if (maxIPs < msqips.size()) {

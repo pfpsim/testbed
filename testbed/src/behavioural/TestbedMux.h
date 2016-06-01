@@ -61,7 +61,7 @@ class TestbedMux: public TestbedMuxSIM {
  private:
   MTQueue<std::shared_ptr<pfp::core::TrType> > incomingPackets;
   sc_mutex muxLock;
-  PcapLogger *pcapLogger;
+  PcapLogger *pcap_logger;
   uint64_t packetCount;
 };
 
