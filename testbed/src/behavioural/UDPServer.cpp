@@ -243,7 +243,8 @@ void UDPServer::datarateManager_thread() {
       }
     }
     if (!clWakeup) {
-      if (!client_instances.empty() && idleInstances == client_instances.size()) {
+      if (!client_instances.empty() &&
+        idleInstances == client_instances.size()) {
         npulog(profile, cout << "All server instances are idle["
         << idleInstances << "]! Going for a wait now for " << minTime
         << " ! " << endl;)

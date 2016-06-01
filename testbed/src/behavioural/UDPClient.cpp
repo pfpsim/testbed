@@ -262,7 +262,8 @@ void UDPClient::scheduler_thread() {
       }
     }
     if (!clWakeup) {
-      if (idleInstances == client_instances.size() && !client_instances.empty()) {
+      if (idleInstances == client_instances.size() &&
+        !client_instances.empty()) {
          npulog(profile, cout << "All client instances are idle["
          << idleInstances << "]! Going for a wait now for "
          << minTime << " ! " << endl;)
