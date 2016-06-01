@@ -137,7 +137,7 @@ void UDPServer::validatePacketSource_thread() {
       cdet = clientDetails.find(clientID)->second;
       if (cdet.active == false) {
         npulog(profile, cout << "Reactivating an old connection" << endl;)
-        cdet.connection_state = fileResponse;
+        cdet.connection_state = serverQuery;
         cdet.file_pending = 0;
         cdet.active = true;
         clientDetails[clientID] = cdet;
