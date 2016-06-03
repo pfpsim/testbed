@@ -52,7 +52,6 @@ TCPServer::TCPServer(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     (&TCPServer::datarateManager_thread, this)));
   ThreadHandles.push_back(sc_spawn(sc_bind
     (&TCPServer::outgoingPackets_thread, this)));
-  // serverSessionsManager();
 }
 
 void TCPServer::init() {
@@ -96,12 +95,8 @@ void TCPServer::validatePacketSource_thread() {
     sc_time maxINwait = sc_time(3600, SC_SEC);
     if (!in->nb_can_get()) {
       sc_time stTime = sc_time_stamp();
-      // npulog(profile, cout << "tcp server going for wait @ " << stTime
-      // << endl;)
       wait(maxINwait, in->ok_to_get());
       sc_time endTime = sc_time_stamp();
-      // npulog(profile, cout << "tcp server came out of wait @ " << endTime
-      // << endl;)
       if (endTime - stTime >= maxINwait) {
         for (sc_process_handle temp : ThreadHandles) {
           npulog(profile, cout << "tcp server killing all its threads"
@@ -129,10 +124,6 @@ void TCPServer::validatePacketSource_thread() {
       cdet.active = true;
       client_instances.insert(
         std::pair<std::string, struct ConnectionDetails>(clientID, cdet));
-      // std::string  serverID = util.getIPAddress(received_packet->getData(),
-      //  ncs.list, "dst");
-      // server_sessions[serverID]++;
-      // serverSessionsManager();
     } else {
       cdet = client_instances.find(clientID)->second;
       if (cdet.active == false) {
@@ -143,11 +134,6 @@ void TCPServer::validatePacketSource_thread() {
         client_instances[clientID] = cdet;
         npulog(profile, cout << "Prev file index was: " << cdet.fileIndex
         << endl;)
-        // std::string  serverID =
-        //   util.getIPAddress(received_packet->getData(),
-        //  ncs.list, "dst");
-        // server_sessions[serverID]++;
-        // serverSessionsManager();
       } else {
         npulog(profile, cout << "Continuation of an active connection"
           << endl;)
@@ -218,20 +204,7 @@ std::string TCPServer::serverSessionsManager() {
   npulog(profile, cout << "ReceivedPacket serverID : " << serverID << endl;)
   std::vector<std::string> baseIPs = util.getBaseIPs(ncs.prefixes);
   if (std::find(baseIPs.begin(), baseIPs.end(), serverID) == baseIPs.end()) {
-    npulog(profile, cout << "Received packet does not point to virtual server. "
-      << endl;)
-    if (server_sessions[serverID] < maxSessions) {
-      // check if the serverSession can absorb one more
-      // assign it one more
-      server_sessions[serverID]++;
-      npulog(profile, cout << "Existing server session load increased: "
-        << server_sessions[serverID] << endl;)
-    } else {
-      npulog(profile, cout << "The received packet should have been better "
-      << "managed by the external load balancer" << endl;)
-      // In case of the receiving serverIP not being the base IP, it is the
-      // duty of the load balancer to balance out the load and not that of the
-      // virtual server
+    if (server_sessions[serverID] > maxSessions) {
       npulog(profile, cout << "WARNING: The server "<< serverID
         << " has reached/ exceeded its capacity - " << server_sessions[serverID]
         << " sessions!" << endl;)
@@ -245,59 +218,58 @@ std::string TCPServer::serverSessionsManager() {
     // 2. If not, create a new server session and assign this request
     //    to the newly created server session
     bool addressUpdated = false;
-    npulog(profile, cout << "Iterating exisiting sessions to find if one is "
-      << "available" << endl;)
     for (std::map<std::string, size_t>::iterator it = server_sessions.begin();
       it != server_sessions.end(); ++it) {
-        npulog(profile, cout << "Old: " << it->first << " : "
-          << it->second << endl;)
-        if (it->second < maxSessions && !addressUpdated) {
-          // util.updateAddress(received_packet, ncs.list, it->first, "dst");
-          serverID = it->first;
-          addressUpdated = true;
-          it->second++;
-          npulog(profile, cout << "Updated a server session: "
-            << it->first << " : " << it->second << endl;)
-        }
+      if (it->second < maxSessions && !addressUpdated) {
+        serverID = it->first;
+        addressUpdated = true;
       }
+    }
     if (!addressUpdated) {
       // add the new instance and update the address
-      npulog(profile, cout << "No exisiting session was updated. "
-        << "Creating a new session" << endl;)
+      npulog(profile, cout << "Creating a new session" << endl;)
       serverID =
         util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
       npulog(profile, cout << "Add server instance: " << serverID << endl;)
-      server_sessions.insert(std::pair<std::string, size_t>(serverID, 1));
-      // util.updateAddress(received_packet, ncs.list, sid, "dst");
-      npulog(profile, cout << "Created a new session and assigned it to the "
-        << "connection: " << serverID << " : " << server_sessions[serverID]
-        << endl;)
+      server_sessions.insert(std::pair<std::string, size_t>(serverID, 0));
     }
   }
+  // If the current state of the received packet is serverQuery,
+  // we will increase the server load
+  // If the current state of the received packet is connectionTeardown,
+  // we will decrease the server load
+  std::string clientID = util.getIPAddress(received_packet->getData(),
+    ncs.list, "src");
+  struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
+  if (cdet->connection_state == serverQuery) {
+    server_sessions[serverID]++;
+  } else if (cdet->connection_state == connectionTeardown) {
+    server_sessions[serverID]--;
+  }
   if (!server_sessions.empty()) {
-    // Here we check that if all servers are having max sessions, we create
-    // a new server instance. Else, if one server has 0 sessions, while any
-    // else is at below maximum, we delete the server instance with zero
-    // load
+    // We delete the server instance with zero load
     std::vector<std::string> deleteInstances;
     for (std::map<std::string, size_t>::iterator it = server_sessions.begin();
       it != server_sessions.end(); ++it) {
-        if (it->second < maxSessions) {
-          // addInstance = false;
-        } else if (it->second <= 0) {
-          deleteInstances.push_back(it->first);
-        } else if (it->second > maxSessions) {
-          npulog(profile, cout << "WARNING: The server "<< it->first
-            << " has reached/ exceeded its capacity - " << it->second
-            << " sessions!" << endl;)
-        }
+      if (it->second <= 0) {
+        deleteInstances.push_back(it->first);
       }
-      for (std::string sid : deleteInstances) {
-        // delete instances with no load and inform the control plane as well
-        npulog(profile, cout << "Erase server instance: " << sid << endl;)
-        server_sessions.erase(sid);
-        }
     }
+    for (std::string sid : deleteInstances) {
+      // delete instances with no load
+      npulog(profile, cout << "Erase server instance: " << sid << endl;)
+      server_sessions.erase(sid);
+      }
+  }
+
+  // Creating the load balancer packet after all the updates
+  // we use the 0th base IP as our node ID
+  std::shared_ptr<TestbedPacket> lb_packet =
+    std::make_shared<TestbedPacket>();
+  util.getLoadBalancerPacket(lb_packet, server_sessions, baseIPs.at(0),
+    SimulationParameters["controller"].get(), received_packet, ncs.list);
+  outgoing_packets.push(lb_packet);
+  cout << "load balancer packet added to outgoing_packets buffer" << endl;
   return serverID;
 }
 // Behavioral methods
@@ -483,18 +455,15 @@ void TCPServer::teardownConnection() {
     // client_instances.erase(srcIP);
     cdet->active = false;
   }
-  std::string serverID = util.getIPAddress(received_packet->getData(),
-    ncs.list, "dst");
-  if (server_sessions.find(serverID) != server_sessions.end()) {
-    server_sessions[serverID]--;
-    // cout << "Deleting server session" << endl;
-  } else {
-    std::cout << "Server session for an unavailable session " + serverID +
-      " is being processed!";
-    for (std::map<std::string, size_t>::iterator it = server_sessions.begin();
-      it != server_sessions.end(); ++it) {
-      std::cout << it->first << " : " << it->second << endl;
-    }
-    assert(false);
-  }
+  // std::string serverID = util.getIPAddress(received_packet->getData(),
+  //  ncs.list, "dst");
+  // if (server_sessions.find(serverID) != server_sessions.end()) {
+  //  server_sessions[serverID]--;
+  npulog(profile, cout << "Deleting server session" << endl;)
+  serverSessionsManager();
+  //} else {
+  //  std::cout << "Server session for an unavailable session " + serverID +
+  //    " is being processed!";
+  //  assert(false);
+  //}
 }
