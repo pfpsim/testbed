@@ -1510,7 +1510,7 @@ void TestbedUtilities::getLoadBalancerPacket(
     data + sizeof(struct in_addr));
 
   // Adding instance counts
-  uint32_t instance_count = server_sessions.size();
+  uint32_t instance_count = htonl((uint32_t)server_sessions.size());
   data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
   lb_packet->setData().insert(lb_packet->setData().end(), data,
     data + sizeof(uint32_t));
