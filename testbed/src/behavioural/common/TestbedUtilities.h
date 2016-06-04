@@ -258,6 +258,13 @@ class TestbedUtilities {
 
   void dissectPacket(const std::vector<uint8_t> &packet_data,
     const std::vector<std::string> &headers);
+
+  void getLoadBalancerPacket(std::shared_ptr<TestbedPacket> lb_packet,
+    const std::map<std::string, size_t> &server_sessions,
+    const std::string &node_id,
+    const std::string &controller_ip,
+    std::shared_ptr<TestbedPacket> received_packet,
+    const std::vector<std::string> &headers);
 };
 
 #endif  // BEHAVIOURAL_COMMON_TESTBEDUTILITIES_H_

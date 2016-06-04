@@ -64,6 +64,7 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
   while (true) {
     std::shared_ptr<TestbedPacket> testbed_packet =
     std::dynamic_pointer_cast<TestbedPacket>(in[port_num]->get());
+    TestbedUtilities util;
     muxLock.lock();
     packetCount++;
     pcap_logger->logPacket(testbed_packet->getData(), sc_time_stamp());

@@ -50,6 +50,11 @@ class ControlPlane: public ControlPlaneSIM,
  public:
   void init();
 
+  // Receive packet from forwarding plane and perform required actions
+void ControlPlane_PortServiceThread();
+
+
+
   // Implementing methods from CPDebuggerInterface
   void do_command(std::string cmd) override;
 
@@ -79,6 +84,9 @@ class ControlPlane: public ControlPlaneSIM,
   std::vector<sc_process_handle> ThreadHandles;
 
   MTQueue<std::shared_ptr<pfp::cp::Command> > command_queue;
+
+  std::map<std::string, size_t> load_balancer_table;
+
 };
 
 #endif  // BEHAVIOURAL_CONTROLPLANE_H_

@@ -46,10 +46,6 @@ PE Scheduler("SchedularConfig.cfg") {
   QueueWrI ocn_wr_if;
 };
 
-PE ControlPlane {
-  ControlPlaneAgentS cpa;
-};
-
 PE ControlPlaneAgentHAL implements ControlPlaneAgentHalS{
     QueueRdI ocn_rd_if;
     QueueWrI ocn_wr_if;

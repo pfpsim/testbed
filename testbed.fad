@@ -1,7 +1,12 @@
-import npu;
+import forwarding_plane;
 interface TestbedRdI, TestbedWrI;
 CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
 CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueRdI, QueueWrI;
+
+PE ControlPlane {
+  TestbedRdI in;
+  ControlPlaneAgentS cpa;
+};
 
 PE TCPServer("TCPServer.cfg"){
 	TestbedRdI in;
@@ -38,8 +43,9 @@ PE TestbedDemux {
 };
 
 PE Testbed {
-  TestbedRdI in;
-  TestbedWrI out;
+  TestbedRdI in_npu;
+  TestbedWrI out_npu;
+  TestbedWrI out_cp;
 
   TCPServer server_ytl("server_ytl.cfg"),server_yts("server_yts.cfg"), server_tcp_test("server_tcp_test.cfg");
   TCPClient client_ytl("client_ytl.cfg"),client_yts("client_yts.cfg"), client_tcp_test("client_tcp_test.cfg");
@@ -50,7 +56,7 @@ PE Testbed {
   TestbedDemux demux;
 
   TestbedQueue mux_in[10];
-  TestbedQueue demux_out[10];
+  TestbedQueue demux_out[11];
 	TestbedQueue loop_q;
 
   TestbedQueue mux_out;
@@ -86,24 +92,27 @@ PE Testbed {
 
   bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], mux_in[4], mux_in[5], mux_in[6], mux_in[7], mux_in[8], mux_in[9]};
 
-  bind demux.out {demux_out[0], demux_out[1], demux_out[2], demux_out[3], demux_out[4], demux_out[5], demux_out[6], demux_out[7], demux_out[8], demux_out[9]};
+  bind demux.out {demux_out[0], demux_out[1], demux_out[2], demux_out[3], demux_out[4], demux_out[5], demux_out[6], demux_out[7], demux_out[8], demux_out[9], out_cp};
 
-  bind mux.out {out};
-  bind demux.in {in};
+  bind mux.out {out_npu};
+  bind demux.in {in_npu};
 };
 
 
 PE top("TopConfig.cfg") {
   ExtQueue testbed_npu, npu_testbed;
+  ExtQueue testbed_cp;
 
   Testbed testbed;
   NPU npu("NPU.cfg");
   ControlPlane control_plane;
 
   bind control_plane.cpa {npu};
+  bind testbed.out_cp {testbed_cp};
+  bind control_plane.in {testbed_cp};
 
-  bind testbed.out {testbed_npu};
+  bind testbed.out_npu {testbed_npu};
   bind npu.ingress {testbed_npu};
   bind npu.egress {npu_testbed};
-  bind testbed.in  {npu_testbed};
+  bind testbed.in_npu  {npu_testbed};
 };
