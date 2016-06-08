@@ -28,56 +28,44 @@
  * 02110-1301, USA.
  */
 
-#ifndef BEHAVIOURAL_UDPSERVER_H_
-#define BEHAVIOURAL_UDPSERVER_H_
+#ifndef BEHAVIOURAL_LOADBALANCER_H_
+#define BEHAVIOURAL_LOADBALANCER_H_
 #include <string>
 #include <vector>
 #include <map>
-#include "../structural/UDPServerSIM.h"
-#include "common/TestbedUtilities.h"
+#include <utility>
+#include "../structural/LoadBalancerSIM.h"
 #include "common/TestbedPacket.h"
-#include "common/PcapLogger.h"
+#include "common/TestbedUtilities.h"
 
-class UDPServer: public UDPServerSIM {
+class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
  public:
-  SC_HAS_PROCESS(UDPServer);
+  SC_HAS_PROCESS(LoadBalancer);
   /*Constructor*/
-  explicit UDPServer(sc_module_name nm, pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT
+  explicit LoadBalancer(sc_module_name nm, pfp::core::PFPObject* parent = 0, std::string configfile = "");  // NOLINT(whitespace/line_length)
   /*Destructor*/
-  virtual ~UDPServer() = default;
+  virtual ~LoadBalancer() = default;
 
  public:
   void init();
 
  private:
-  void UDPServer_PortServiceThread();
-  void UDPServerThread(std::size_t thread_id);
+  typedef std::pair<std::string, size_t> instance_infotype;
+  void LoadBalancer_PortServiceThread();
+  void LoadBalancerThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
 
-  void initializeServer();
-
-  // Administrative methods
-  void populateLocalMap();
-  void validatePacketSource_thread();
   void outgoingPackets_thread();
-  void datarateManager_thread();
-  std::string serverSessionsManager();
-  void assignServer(std::string dnsreply);
 
-  // Behavioral methods
-  void establishConnection();
-  void registerFile();
-  void processFile();
-  void teardownConnection();
+  void invokeDNS();
+  void updateServerSessionsTable();
 
- private:
-  std::shared_ptr<TestbedPacket> received_packet;
-  std::map<std::string, std::string> local_map;
-  std::shared_ptr<PcapLogger> pcap_logger;
-  ServerConfigStruct ncs;
+  std::shared_ptr<TestbedPacket> rcvd_testbed_packet;
+  // node_id --> instance_id, instance_load
+  std::multimap<std::string, instance_infotype>
+    server_sessions_table;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
-  std::map<std::string, struct ConnectionDetails> client_instances;
-  std::map<std::string, size_t> server_sessions;
+  std::string getServerInstanceAddress();
 };
 
-#endif  // BEHAVIOURAL_UDPSERVER_H_
+#endif  // BEHAVIOURAL_LOADBALANCER_H_

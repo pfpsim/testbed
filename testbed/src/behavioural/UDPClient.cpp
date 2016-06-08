@@ -98,8 +98,9 @@ void UDPClient::populateLocalMap() {
   local_map.insert(std::pair<std::string, std::string>("dport", tempstr));
   tempstr = GetParameter("se_addr").get();
   local_map.insert(std::pair<std::string, std::string>("se_addr", tempstr));
-  tempstr = GetParameter("dnsserver").get();
-  local_map.insert(std::pair<std::string, std::string>("dnsserver", tempstr));
+  tempstr = GetParameter("dns_load_balancer").get();
+  local_map.insert(std::pair<std::string, std::string>("dns_load_balancer",
+    tempstr));
 }
 // Administrative methods
 void UDPClient::addClientInstances() {
@@ -181,6 +182,9 @@ void UDPClient::activateClientInstance_thread() {
         // Initiate sending of the SYN packet
         received_packet = NULL;
         acquireServerInstance(it->first);
+        npulog(profile, cout << "We activated a client instance. "
+          << "Waiting for it to connect!" << endl;)
+        wait(activate_client_instance_event);
         // establishConnection(it->first);
       }
     }
@@ -379,7 +383,7 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     util.finalizePacket(resPacket, hdrList);
     outgoing_packets.push(resPacket);
   } else {
-    std::string serverID = util.getDNSResponse(received_packet, hdrList);
+    std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
     clientID = util.getIPAddress(received_packet->getData(),
       hdrList, "dst");
     npulog(profile, cout << "Client received DNS response. Client " << clientID
@@ -431,6 +435,7 @@ void UDPClient::registerFile() {
   size_t payloadLen = pktsize - headerLen;
   int32_t fileSize = 0;
   if (payloadLen == 4) {
+    activate_client_instance_event.notify();
     uint32_t *fsptr =
     static_cast<uint32_t*>(
       static_cast<void*>(received_packet->setData().data()+headerLen));

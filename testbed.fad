@@ -1,12 +1,7 @@
-import forwarding_plane;
+import control_plane;
 interface TestbedRdI, TestbedWrI;
 CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
 CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueRdI, QueueWrI;
-
-PE ControlPlane {
-  TestbedRdI in;
-  ControlPlaneAgentS cpa;
-};
 
 PE TCPServer("TCPServer.cfg"){
 	TestbedRdI in;
@@ -42,9 +37,10 @@ PE TestbedDemux {
 	TestbedWrI loop_out;
 };
 
-PE Testbed {
+PE Testbed("Testbed.cfg") {
   TestbedRdI in_npu;
   TestbedWrI out_npu;
+  TestbedRdI in_cp;
   TestbedWrI out_cp;
 
   TCPServer server_ytl("server_ytl.cfg"),server_yts("server_yts.cfg"), server_tcp_test("server_tcp_test.cfg");
@@ -55,7 +51,7 @@ PE Testbed {
   TestbedMux mux;
   TestbedDemux demux;
 
-  TestbedQueue mux_in[10];
+  TestbedQueue mux_in[11];
   TestbedQueue demux_out[11];
 	TestbedQueue loop_q;
 
@@ -90,7 +86,7 @@ PE Testbed {
   bind server_udp_test.out {mux_in[9]};
   bind server_udp_test.in {demux_out[9]};
 
-  bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], mux_in[4], mux_in[5], mux_in[6], mux_in[7], mux_in[8], mux_in[9]};
+  bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], mux_in[4], mux_in[5], mux_in[6], mux_in[7], mux_in[8], mux_in[9], in_cp};
 
   bind demux.out {demux_out[0], demux_out[1], demux_out[2], demux_out[3], demux_out[4], demux_out[5], demux_out[6], demux_out[7], demux_out[8], demux_out[9], out_cp};
 
@@ -101,15 +97,18 @@ PE Testbed {
 
 PE top("TopConfig.cfg") {
   ExtQueue testbed_npu, npu_testbed;
-  ExtQueue testbed_cp;
+  ExtQueue testbed_cp, cp_testbed;
 
   Testbed testbed;
   NPU npu("NPU.cfg");
   ControlPlane control_plane;
 
   bind control_plane.cpa {npu};
-  bind testbed.out_cp {testbed_cp};
-  bind control_plane.in {testbed_cp};
+  
+  bind testbed.out_cp    {testbed_cp};
+  bind control_plane.in  {testbed_cp};
+  bind control_plane.out {cp_testbed};
+  bind testbed.in_cp     {cp_testbed};
 
   bind testbed.out_npu {testbed_npu};
   bind npu.ingress {testbed_npu};

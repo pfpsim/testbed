@@ -335,21 +335,3 @@ PE NPU("NPUConfig.cfg") implements ControlPlaneAgentS {
   bind deparser.egress              {egress};
 
 };
-
-PE PacketGenerator("PacketGeneratorConfig.cfg") {
-  QueueWrI out;
-};
-
-PE SortedLogger {
-  QueueRdI in;
-  QueueWrI out;
-};
-
-PE Logger("LoggerConfig.cfg") {
-  QueueRdI in;
-  QueueWrI out;
-};
-
-PE PacketSink {
-  QueueRdI in;
-};

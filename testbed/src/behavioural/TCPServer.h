@@ -54,13 +54,15 @@ class TCPServer: public TCPServerSIM {
   void TCPServerThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
 
+  void initializeServer();
+
   // Administrative methods
   void populateLocalMap();
   void validatePacketSource_thread();
   void outgoingPackets_thread();
   void datarateManager_thread();
   std::string serverSessionsManager();
-  void assignServer();
+  void assignServer(std::string dnsreply);
 
   // Behavioral methods
   void establishConnection();

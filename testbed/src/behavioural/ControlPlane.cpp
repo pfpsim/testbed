@@ -44,7 +44,9 @@ ControlPlane::ControlPlane(sc_module_name nm, pfp::core::PFPObject* parent, std:
   ThreadHandles.push_back(
     sc_spawn(sc_bind(&ControlPlane::command_processing_thread, this)));
   ThreadHandles.push_back(
-    sc_spawn(sc_bind(&ControlPlane::ControlPlane_PortServiceThread, this)));
+    sc_spawn(sc_bind(&ControlPlane::ControlPlane_InPortServiceThread, this)));
+  ThreadHandles.push_back(
+    sc_spawn(sc_bind(&ControlPlane::ControlPlane_OutPortServiceThread, this)));
 }
 
 void ControlPlane::init() {
@@ -189,20 +191,19 @@ void ControlPlane::process(pfp::cp::FailedResult*) {
   // TODO(gordon)
 }
 
-void ControlPlane::ControlPlane_PortServiceThread() {
+void ControlPlane::ControlPlane_InPortServiceThread() {
   while (true) {
     auto received_packet = in->get();
+    npulog(profile, cout << "We received a packet at the control plane!!"
+      << endl;)
     // Currently all packets that we receive will be for load balancing only
     // Assuming a ethernet_t, ipv4_t and udp_t pattern of headers
 
-    // 1. Check the destination IP and compare it with the controller IP
-    //    Process packets only destined for the controller
-    // 2. Update the entries of the load_balancer_table with matching node_id
-    //    a. Update the entries for matching node_id and instance_id
-    //    b. Remove entries for matching node_id but no matching instance_id
-    // 3. Delete all instances of the service_request table
-    // 4. Repopulate the service_request table
-    std::string controller_ip = SimulationParameters["controller_ip"].get();
+    // 1. Check the destination IP and compare it with the dns load balancer IP
+    //    Process packets only destined for the load balancer
+    std::string dns_load_balancer_ip =
+      SimulationParameters["dns_load_balancer"].get();
+
     if (std::dynamic_pointer_cast<TestbedPacket>(received_packet)) {
       std::shared_ptr<TestbedPacket> testbed_packet =
         std::dynamic_pointer_cast<TestbedPacket>(received_packet);
@@ -211,25 +212,24 @@ void ControlPlane::ControlPlane_PortServiceThread() {
       // packet stream getPacketHeaderList(std::vector<uint8_t> packet)
       std::vector<std::string> headers;
       headers.push_back("ethernet_t");
+      headers.push_back("ipv4_t");
       std::string received_packet_ip = util.getIPAddress(
-        received_packet.getData(), headers, "dst");
-      if (received_packet_ip.compare(controller_ip) == 0) {
-        // How do we get the different values of the tables?
-        // We need a to match IP address, a destination IP, etc.....
-        // eg. in:
-        // insert_entry service_request 14.1.0.0/16  10004'2
-        //                                            assign_server 147.244.0.0
-        // How will I align the match fields here to the match table...
-
-        // All new client requests will be sent to the 0th base IP of the config
-        // That will be redirected to the appropriate server instance
-
-
+        testbed_packet->getData(), headers, "dst");
+      if (received_packet_ip.compare(dns_load_balancer_ip) == 0) {
+        npulog(profile, cout << "This packet is destined for the dns"
+          << " load balancer" << endl;)
+        // Queue lb_in_q, lb_out_q;
+        lb_in_q.put(received_packet);
       } else {
-        npulog("profile", cout << "Control plane received stray packet"
+        npulog(profile, cout << "Control plane received stray packet"
           <<endl;)
         assert(false);
       }
     }
+  }
+}
+void ControlPlane::ControlPlane_OutPortServiceThread() {
+  while (true) {
+    out->put(lb_out_q.get());
   }
 }

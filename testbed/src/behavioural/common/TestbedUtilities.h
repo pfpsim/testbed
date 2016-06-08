@@ -223,7 +223,9 @@ class TestbedUtilities {
   void getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
     std::shared_ptr<TestbedPacket> resPacket, int type,
     const std::vector<std::string> &headers, const std::string &message);
-  std::string  getDNSResponse(std::shared_ptr<TestbedPacket> pkt,
+  std::string  getDNSResponseIPAddr(std::shared_ptr<TestbedPacket> pkt,
+      const std::vector<std::string> &headers);
+  std::string  getDNSRequestURL(std::shared_ptr<TestbedPacket> pkt,
       const std::vector<std::string> &headers);
   // 1. Servers send a SYN/ACK packet                                   type -1
   // 2. Servers/Clients send a ACK packet                                type -2
@@ -265,6 +267,8 @@ class TestbedUtilities {
     const std::string &controller_ip,
     std::shared_ptr<TestbedPacket> received_packet,
     const std::vector<std::string> &headers);
+
+  std::vector<std::string> getPacketHeaders(std::shared_ptr<TestbedPacket> pkt);
 };
 
 #endif  // BEHAVIOURAL_COMMON_TESTBEDUTILITIES_H_

@@ -199,64 +199,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       ips.clear();
     }
     tempvec.clear();
-
-/*
-    tempstr = configMap.find("se_dhcpPolicy")->second;
-    tempvec = getStringVector(tempstr);
-    std::string se_dnsdist = tempvec.at(0);
-    double se_dnsp1, se_dnsp2;
-    if (tempvec.size() < 2) {
-      getDefaultDistributionParameters(se_dnsdist, &se_dnsp1, &se_dnsp2);
-    } else if (tempvec.size() < 3) {
-      se_dnsp1 = stod(tempvec.at(1));
-      se_dnsp2 = 0;
-    } else {
-      se_dnsp1 = stod(tempvec.at(1));
-      se_dnsp2 = stod(tempvec.at(2));
-    }
-    tempvec.clear();
-
-    std::map<int, int> se_dnsfreq;
-    tempstr = configMap.find("se_dhcpPool")->second;
-    tempvec = getStringVector(tempstr);
-    rnum = -1;
-    for (int index = 0; index < headerCount; index++) {
-      if (se_dnsdist.compare("round-robin") == 0) {
-        rnum++;
-        if (rnum == tempvec.size()) {
-          rnum = 0;
-        }
-      } else {
-        rnum = getRandomNum(0, tempvec.size() - 1, se_dnsdist,
-          se_dnsp1, se_dnsp2);
-      }
-      if (se_dnsfreq.find(rnum) == se_dnsfreq.end()) {
-        se_dnsfreq.insert(std::pair<int, int>(rnum, 1));
-      } else {
-        se_dnsfreq[rnum]++;
-      }
-    }
-
-    for (std::map<int, int>::iterator it = se_dnsfreq.begin();
-      it != se_dnsfreq.end(); ++it) {
-      // mask index: it->first
-      // mask freq : it->second
-      std::vector<std::string> ips;
-      ips = getIPv4List(tempvec.at(it->first), it->second);
-      if (ips.size() < it->second) {
-        std::cerr << configFile
-        << ": Unable to create sufficient serverIPs to satisfy"
-        << "the configured dns policy!" << std::endl;
-        assert(false);
-      }
-      for (std::string tempip : ips) {
-        serverIPs.push_back(tempip);
-      }
-      ips.clear();
-    }
-*/
-    serverIP = configMap.find("dnsserver")->second;
-
+    serverIP = configMap.find("dns_load_balancer")->second;
     tempvec.clear();
     for (int index = 0; index < headerCount; index++) {
       std::vector<uint8_t> header;
@@ -290,7 +233,6 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           ip_f.ip_off = 0;
           int ttl = stoi(configMap.find("ttl")->second);
           ip_f.ip_ttl = (uint8_t) ttl;
-          // ipv4_ttl = ip_f.ip_ttl;
           if (ncs.list.size() >=3 && ncs.list[nhdr + 1].compare("tcp_t") == 0) {
             uint8_t proct = 6;
             ip_f.ip_p = proct;
@@ -303,9 +245,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           }
           ip_f.ip_sum = 0;
 
-          std::string ipsrc;  // , ipdst;
-          // serverIPs, clientIPs
-          // ipdst = serverIPs.at(index);
+          std::string ipsrc;
           ipsrc = clientIPs.at(index);
 
           if (inet_aton(serverIP.c_str(), &ip_f.ip_dst) == 0) {
@@ -696,17 +636,6 @@ void TestbedUtilities::finalizePacket(std::shared_ptr<TestbedPacket> pkt,
       ipptr->ip_sum = calculateIPChecksum(ipptr, sizeof(struct ip));
       headerPos.pop_back();
     } else if (hdr.compare("ipv6_t") == 0) {
-      /*
-      struct ip6_hdr {
-        uint32_t ip6_un1_flow; // 4 bits version, 8 bits TC, 20 bits flow-ID
-        uint16_t ip6_un1_plen; // payload length
-        uint8_t ip6_un1_nxt; // next header
-        uint8_t ip6_un1_hlim; // hop limit
-        // uint8_t ip6_un2_vfc; // 4 bits version, top 4 bits tclass
-        struct in6_addr ip6_src; // source address
-        struct in6_addr ip6_dst; // destination address
-      };
-      */
       // extract header to be updated
       ip6ptr = (struct ip6_hdr*) (dataptr + headerPos.back());
       ip6ptr->ip6_un1_plen = htonl(pkt->setData().size()
@@ -1006,10 +935,7 @@ std::vector<std::string> TestbedUtilities::interleaveVectors
   (const std::vector<std::vector<std::string> >& cps2) {
   std::vector<std::string> cps;
   int maxVectorSize = 0;
-  // int totalVectorSize = 0;
-
   for (int tvindex = 0; tvindex < cps2.size(); tvindex++) {
-    // totalVectorSize += cps2.at(tvindex).size();
     if (maxVectorSize < cps2.at(tvindex).size()) {
       maxVectorSize = cps2.at(tvindex).size();
     }
@@ -1029,7 +955,6 @@ std::string TestbedUtilities::getIPAddress(
   const std::string &type) {
   struct ip *ipptr;
   std::string id;
-  // size_t header_pos = 0;
   for (std::string header_name : list) {
     if (header_name.compare("ipv4_t")) {
       ipptr = (struct ip*)(packet.data() + sizeof(ether_header));
@@ -1065,6 +990,8 @@ size_t TestbedUtilities::getHeaderLength(
       headerLen += sizeof(struct trackhdr);
     } else if (hdr.compare("ipv6_t") ==0) {
       headerLen += sizeof(struct ip6_hdr);
+    } else if (hdr.compare("dns_t") ==0) {
+      headerLen += sizeof(struct dnshdr);
     }
   }
   return headerLen;
@@ -1226,6 +1153,7 @@ void TestbedUtilities::getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
       } else if (hdr.compare("udp_t") == 0) {
         struct udphdr *udpptr;
         udpptr = (struct udphdr*)(reqPacket->getData().data() + headerPos);
+        udpptr->uh_dport = (htons)(53);
         uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(udpptr));
         resPacket->setData().insert(resPacket->setData().end(), data,
           data + sizeof(struct udphdr));
@@ -1233,13 +1161,12 @@ void TestbedUtilities::getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
       } else if (hdr.compare("tcp_t") == 0) {
         tcpptr = (struct tcphdr*)(reqPacket->getData().data() + headerPos);
         struct udphdr udpheader;
-        udpheader.uh_dport = tcpptr->th_dport;
+        udpheader.uh_dport = (htons)(53);  // tcpptr->th_dport;
         udpheader.uh_sport = tcpptr->th_sport;
         uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udpheader));
         resPacket->setData().insert(resPacket->setData().end(), data,
           data + sizeof(struct udphdr));
         headerPos += sizeof(struct udphdr);
-        // resPacket->setData().end());
       }
     }
     struct dnshdr dnsheader;
@@ -1267,7 +1194,7 @@ void TestbedUtilities::getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
     std::vector<uint8_t> question;
 
     while (std::getline(ss, item, '.')) {
-      int x = item.size();
+      int x = item.size() - 0;
       question.push_back((uint8_t)x);
       question.insert(question.end(), item.c_str(), item.c_str() + x);
     }
@@ -1322,28 +1249,8 @@ void TestbedUtilities::getDnsPacket(std::shared_ptr<TestbedPacket> reqPacket,
       data + sizeof(struct in_addr));
   }
 }
-std::string  TestbedUtilities::getDNSResponse(
+std::string  TestbedUtilities::getDNSResponseIPAddr(
   std::shared_ptr<TestbedPacket> pkt, const std::vector<std::string> &headers) {
-    /*
-  size_t headerPos = 0;
-  for (std::string hdr : headers) {
-    if (hdr.compare("ethernet_t") == 0) {
-      headerPos += sizeof(struct ether_header);
-    } else if (hdr.compare("ipv4_t") == 0) {
-      headerPos += sizeof(struct ip);
-    } else if (hdr.compare("tcp_t") == 0) {
-      headerPos += sizeof(struct tcphdr);
-    } else if (hdr.compare("udp_t") == 0) {
-      headerPos += sizeof(struct udphdr);
-    } else if (hdr.compare("trackhdr") == 0) {
-      headerPos += sizeof(struct trackhdr);
-    } else if (hdr.compare("ipv6_t") ==0) {
-      headerPos += sizeof(struct ip6_hdr);
-    } else if (hdr.compare("dns_t") == 0) {
-      headerPos += sizeof(struct dnshdr);
-    }
-  }
-  */
   // Query starts from here.. actually answer is only the last 4 octets
   struct in_addr *dnsreply = (struct in_addr*)(pkt->getData().data()
     + pkt->getData().size() - sizeof(struct in_addr));
@@ -1353,15 +1260,16 @@ std::string  TestbedUtilities::getDNSResponse(
   std::string rep = inet_ntoa(*dnsreply);
   return rep;
 }
+std::string  getDNSRequestURL(std::shared_ptr<TestbedPacket> pkt,
+    const std::vector<std::string> &headers) {
+}
 void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
   const std::vector<std::string> &headers) {
   size_t headerPos = 0;
-
   for (std::string hdr : headers) {
     if (hdr.compare("ethernet_t") == 0) {
       struct ether_header *ethernetptr
         = (struct ether_header*)(packet_data.data() + headerPos);
-
       std::cout << "ether_dhost: ";
       for (int index = 0; index < 6; index++) {
         std::cout << (uint32_t)ethernetptr->ether_dhost[index] << ":";
@@ -1372,12 +1280,10 @@ void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
       } std::cout << std::endl;
       std::cout << "ether_type: " << (uint32_t)ntohs(ethernetptr->ether_type)
         << std::endl;
-
       headerPos += sizeof(struct ether_header);
     } else if (hdr.compare("ipv4_t") == 0) {
       struct ip *ipptr
         = (struct ip*)(packet_data.data() + headerPos);
-
       std::cout << "ip_vhl" << ipptr->ip_vhl  << std::endl;
       std::cout << "ip_tos" << ipptr->ip_tos  << std::endl;
       std::cout << "ip_len" << ntohs(ipptr->ip_len)     << std::endl;
@@ -1394,12 +1300,10 @@ void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
         assert(!"Incorrect IP received");
       }
       std::cout << "ip_dst" << inet_ntoa(ipptr->ip_dst) << std::endl;
-
       headerPos += sizeof(struct ip);
     } else if (hdr.compare("tcp_t") == 0) {
       struct tcphdr *tcpptr
         = (struct tcphdr*)(packet_data.data() + headerPos);
-
       std::cout << "th_sport" << ntohs(tcpptr->th_sport)   << std::endl;
       std::cout << "th_dport" << ntohs(tcpptr->th_dport)   << std::endl;
       std::cout << "th_seq"   << ntohl(tcpptr->th_seq)     << std::endl;
@@ -1409,17 +1313,14 @@ void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
       std::cout << "th_win"   << ntohs(tcpptr->th_win)      << std::endl;
       std::cout << "th_sum"   << ntohs(tcpptr->th_sum)      << std::endl;
       std::cout << "th_urp"   << ntohs(tcpptr->th_urp)      << std::endl;
-
       headerPos += sizeof(struct tcphdr);
     } else if (hdr.compare("udp_t") == 0) {
       struct udphdr *udpptr
         = (struct udphdr*)(packet_data.data() + headerPos);
-
       std::cout << "uh_sport" << ntohs(udpptr->uh_sport) << std::endl;
       std::cout << "uh_dport" << ntohs(udpptr->uh_dport) << std::endl;
       std::cout << "uh_ulen"  << ntohs(udpptr->uh_ulen)  << std::endl;
       std::cout << "uh_sum"   << ntohs(udpptr->uh_sum)   << std::endl;
-
       headerPos += sizeof(struct udphdr);
     }
   }
@@ -1439,82 +1340,158 @@ void TestbedUtilities::getLoadBalancerPacket(
   // The payload for the udp header is the server_sessions manager pairs
   // the format of the payload is:
   // server_node id + number of instances + (instance id + instance load)
-
-  // (std::shared_ptr<TestbedPacket> reqPacket,
-  // std::shared_ptr<TestbedPacket> resPacket, int type,
-  // const std::vector<std::string> &headers);
   struct tcphdr *tcpptr;
-  std::shared_ptr<TestbedPacket> response_packet =
-    std::make_shared<TestbedPacket>();
-  getResponseHeader(received_packet, response_packet, 0, headers);
-
-  int headerPos = 0;
-  lb_packet->setData().clear();
-  for (std::string hdr : headers) {
-    if (hdr.compare("ethernet_t") == 0) {
-      struct ether_header *ethernetptr;
-      ethernetptr = (struct ether_header*)(response_packet->getData().data());
-      uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ethernetptr));
-      lb_packet->setData().insert(lb_packet->setData().end(), data,
+  if (received_packet == NULL) {
+    // This is generally the case when the server is initializing...
+    // We create a ethernet-ipv4-udp packet with the load balancer info as
+    // payload
+    struct ether_header eth_f;
+    // ("ipv4_t") == 0) {
+    eth_f.ether_type = ntohs(2048);
+    // ("ipv6_t") == 0) {
+    //  eth_f.ether_type = 0x86DD;
+    // FOR NOW LEFT DEST MAC AND SOURCE MAC AS GARBAGE
+    uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&eth_f));
+    lb_packet->setData().insert(lb_packet->setData().end(), data,
         data + sizeof(struct ether_header));
-      headerPos += sizeof(struct ether_header);
-    } else if (hdr.compare("ipv4_t") == 0) {
-      struct ip *ipptr;
-      ipptr = (struct ip*)(response_packet->getData().data() + headerPos);
-      if (inet_aton(controller_ip.c_str(), &ipptr->ip_dst) == 0) {
-        std::cerr << "We got an invalid IP address - 05! Controller addr: "
-          << controller_ip << std::endl;
-        assert(false);
+    // (ncs.list[nhdr].compare("ipv4_t") == 0) {
+    struct ip ip_f;
+    uint8_t vhl = 69;
+    ip_f.ip_vhl = vhl;
+    int tos = 0;
+    ip_f.ip_tos = (uint8_t) tos;
+    uint16_t len = 16;
+    ip_f.ip_len = htons(len);
+    ip_f.ip_id = htons(static_cast<int16_t>(getRandomNum(
+      0, SHRT_MAX, "uniform")));
+    ip_f.ip_off = 0;
+    int ttl = 64;  // stoi(configMap.find("ttl")->second);
+    ip_f.ip_ttl = (uint8_t) ttl;
+    // ipv4_ttl = ip_f.ip_ttl;
+    // compare("tcp_t") == 0) {
+    //  uint8_t proct = 6;
+    //  ip_f.ip_p = proct;
+    // compare("udp_t") == 0) {
+    uint8_t proct = 17;
+    ip_f.ip_p = proct;
+    ip_f.ip_sum = 0;
+
+    std::string ipsrc = server_sessions.begin()->first;  // , ipdst;
+    // serverIPs, clientIPs
+    // ipdst = serverIPs.at(index);
+    // dipsrc = clientIPs.at(index);
+
+    if (inet_aton(controller_ip.c_str(), &ip_f.ip_dst) == 0) {
+      std::cerr << "We got an invalid IP address - 08! Server addr: "
+        << controller_ip << std::endl;
+      assert(false);
+    }
+    if (inet_aton(ipsrc.c_str(), &ip_f.ip_src) == 0) {
+      std::cerr << "We got an invalid IP address - 09! Src: " << ipsrc
+          << std::endl;
+      assert(false);
+    }
+    data =  static_cast<uint8_t*>(static_cast<void*>(&ip_f));
+    lb_packet->setData().insert(lb_packet->setData().end(), data,
+      data + sizeof(struct ip));
+    // else if (ncs.list[nhdr].compare("udp_t") == 0) {
+    struct udphdr udp_f;
+    // std::string strport = configMap.find("sport")->second;
+    // uint16_t port = (uint16_t) stoi(strport);
+    udp_f.uh_sport =  htons(static_cast<int16_t>(getRandomNum(0, SHRT_MAX,
+      "uniform")));
+    // strport = configMap.find("dport")->second;
+    // port = (uint16_t) stoi(strport);
+    udp_f.uh_dport = htons(static_cast<int16_t>(getRandomNum(0, SHRT_MAX,
+      "uniform")));
+    udp_f.uh_ulen = 0; /* udp length */
+    udp_f.uh_sum = 0; /* udp checksum */
+    data =  static_cast<uint8_t*>(static_cast<void*>(&udp_f));
+    lb_packet->setData().insert(lb_packet->setData().end(), data,
+      data + sizeof(struct udphdr));
+  } else {
+    std::shared_ptr<TestbedPacket> response_packet =
+      std::make_shared<TestbedPacket>();
+    getResponseHeader(received_packet, response_packet, 0, headers);
+
+    int headerPos = 0;
+    lb_packet->setData().clear();
+    for (std::string hdr : headers) {
+      if (hdr.compare("ethernet_t") == 0) {
+        struct ether_header *ethernetptr;
+        ethernetptr = (struct ether_header*)(response_packet->getData().data());
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ethernetptr));
+        lb_packet->setData().insert(lb_packet->setData().end(), data,
+          data + sizeof(struct ether_header));
+        headerPos += sizeof(struct ether_header);
+      } else if (hdr.compare("ipv4_t") == 0) {
+        struct ip *ipptr;
+        ipptr = (struct ip*)(response_packet->getData().data() + headerPos);
+        if (inet_aton(controller_ip.c_str(), &ipptr->ip_dst) == 0) {
+          std::cerr << "We got an invalid IP address - 05! Controller addr: "
+            << controller_ip << std::endl;
+          assert(false);
+        }
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ipptr));
+        lb_packet->setData().insert(lb_packet->setData().end(), data,
+          data + sizeof(struct ip));
+        headerPos += sizeof(struct ip);
+      } else if (hdr.compare("ipv6_t") ==0) {
+        struct ip6_hdr *ip6ptr;
+        ip6ptr = (struct ip6_hdr*)(response_packet->getData().data() +
+          headerPos);
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ip6ptr));
+        lb_packet->setData().insert(lb_packet->setData().end(), data,
+          data + sizeof(struct ip6_hdr));
+        headerPos += sizeof(struct ip6_hdr);
+      } else if (hdr.compare("udp_t") == 0) {
+        struct udphdr *udpptr;
+        udpptr = (struct udphdr*)(response_packet->getData().data() +
+          headerPos);
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(udpptr));
+        lb_packet->setData().insert(lb_packet->setData().end(), data,
+          data + sizeof(struct udphdr));
+        headerPos += sizeof(struct udphdr);
+      } else if (hdr.compare("tcp_t") == 0) {
+        tcpptr = (struct tcphdr*)(response_packet->getData().data() +
+          headerPos);
+        struct udphdr udpheader;
+        udpheader.uh_dport = tcpptr->th_dport;
+        udpheader.uh_sport = tcpptr->th_sport;
+        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udpheader));
+        lb_packet->setData().insert(lb_packet->setData().end(), data,
+          data + sizeof(struct udphdr));
+        headerPos += sizeof(struct udphdr);
+        // resPacket->setData().end());
       }
-      uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ipptr));
-      lb_packet->setData().insert(lb_packet->setData().end(), data,
-        data + sizeof(struct ip));
-      headerPos += sizeof(struct ip);
-    } else if (hdr.compare("ipv6_t") ==0) {
-      struct ip6_hdr *ip6ptr;
-      ip6ptr = (struct ip6_hdr*)(response_packet->getData().data() + headerPos);
-      uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ip6ptr));
-      lb_packet->setData().insert(lb_packet->setData().end(), data,
-        data + sizeof(struct ip6_hdr));
-      headerPos += sizeof(struct ip6_hdr);
-    } else if (hdr.compare("udp_t") == 0) {
-      struct udphdr *udpptr;
-      udpptr = (struct udphdr*)(response_packet->getData().data() + headerPos);
-      uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(udpptr));
-      lb_packet->setData().insert(lb_packet->setData().end(), data,
-        data + sizeof(struct udphdr));
-      headerPos += sizeof(struct udphdr);
-    } else if (hdr.compare("tcp_t") == 0) {
-      tcpptr = (struct tcphdr*)(response_packet->getData().data() + headerPos);
-      struct udphdr udpheader;
-      udpheader.uh_dport = tcpptr->th_dport;
-      udpheader.uh_sport = tcpptr->th_sport;
-      uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udpheader));
-      lb_packet->setData().insert(lb_packet->setData().end(), data,
-        data + sizeof(struct udphdr));
-      headerPos += sizeof(struct udphdr);
-      // resPacket->setData().end());
     }
   }
   // Time for the payload
   // Adding node id
-  struct in_addr tempip;
-  if (inet_aton(node_id.c_str(), &tempip) == 0) {
-    std::cerr << "We got an invalid IP address - 06! node_id: "
-      << node_id << std::endl;
-    assert(false);
-  }
-  uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
-  lb_packet->setData().insert(lb_packet->setData().end(), data,
-    data + sizeof(struct in_addr));
+  // We add it as we add it for DNS question :)
+  // Let's follow a standard ;)
+  std::stringstream ss(node_id);
+  std::string item;
+  std::vector<uint8_t> parsed_node_id;
 
+  while (std::getline(ss, item, '.')) {
+    int x = item.size() - 0;
+    parsed_node_id.push_back((uint8_t)x);
+    parsed_node_id.insert(parsed_node_id.end(), item.c_str(), item.c_str() + x);
+  }
+  parsed_node_id.push_back((uint8_t)0);
+  while (parsed_node_id.size() %4 != 0) {
+    parsed_node_id.push_back((uint8_t)0);
+  }
+  lb_packet->setData().insert(lb_packet->setData().end(),
+    parsed_node_id.begin(), parsed_node_id.end());
   // Adding instance counts
   uint32_t instance_count = htonl((uint32_t)server_sessions.size());
-  data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
+  uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
   lb_packet->setData().insert(lb_packet->setData().end(), data,
     data + sizeof(uint32_t));
-
   // Adding instances and load
+  struct in_addr tempip;
   for (std::map<std::string, size_t>::const_iterator it =
     server_sessions.begin(); it != server_sessions.end(); ++it) {
     if (inet_aton(it->first.c_str(), &tempip) == 0) {
@@ -1525,10 +1502,72 @@ void TestbedUtilities::getLoadBalancerPacket(
     data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
     lb_packet->setData().insert(lb_packet->setData().end(), data,
       data + sizeof(struct in_addr));
-
     uint32_t server_load = htonl((uint32_t)it->second);
     data = static_cast<uint8_t*>(static_cast<void*>(&server_load));
     lb_packet->setData().insert(lb_packet->setData().end(), data,
       data + sizeof(uint32_t));
   }
+}
+std::vector<std::string> TestbedUtilities::getPacketHeaders(
+  std::shared_ptr<TestbedPacket> pkt) {
+  size_t headerpos = 0;
+  std::vector<std::string> headers;
+  const struct ether_header *etherptr;
+  // We always assume first header to be ethernet header
+  etherptr = static_cast<const struct ether_header*>(static_cast<const void*>(
+    pkt->getData().data()));
+  headers.push_back("ethernet_t");
+  headerpos += sizeof(struct ether_header);
+  // if (ncs.list.size() >= 2 &&
+  //    ncs.list[nhdr + 1].compare("ipv4_t") == 0) {
+  //  eth_f.ether_type = ntohs(2048);
+  // } else if (ncs.list.size() >= 2 &&
+  //    ncs.list[nhdr + 1].compare("ipv6_t") == 0) {
+  //  eth_f.ether_type = 0x86DD;
+  if (etherptr->ether_type == ntohs(2048)) {
+    const struct ip *ipptr = static_cast<const struct ip*>(
+      static_cast<const void*>(pkt->getData().data() +  headerpos));
+    headers.push_back("ipv4_t");
+    headerpos += sizeof(struct ip);
+    uint16_t ip_protocol = (uint16_t)ipptr->ip_p;
+    if (ip_protocol == 6) {
+      const struct tcphdr *tcpptr = static_cast<const struct tcphdr*>(
+        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      headers.push_back("tcp_t");
+      if (tcpptr->th_dport == htons(53)) {
+        std::cerr << "We do not support DNS over TCP yet!" << endl;
+        assert(false);
+      }
+    } else if (ip_protocol == 17) {
+      const struct udphdr *udpptr = static_cast<const struct udphdr*>(
+        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      headers.push_back("udp_t");
+      if (udpptr->uh_dport == htons(53)) {
+        headers.push_back("dns_t");
+      }
+    }
+  } else if (etherptr->ether_type == 0x86DD) {
+    const struct ip6_hdr *ipptr = static_cast<const struct ip6_hdr*>(
+      static_cast<const void*>(pkt->getData().data() +  headerpos));
+    headers.push_back("ipv6_t");
+    headerpos += sizeof(struct ip6_hdr);
+    uint16_t ip_protocol = (uint16_t)ipptr->ip6_un1_nxt;
+    if (ip_protocol == 6) {
+      const struct tcphdr *tcpptr = static_cast<const struct tcphdr*>(
+        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      headers.push_back("tcp_t");
+      if (tcpptr->th_dport == htons(53)) {
+        std::cerr << "We do not support DNS over TCP yet!" << endl;
+        assert(false);
+      }
+    } else if (ip_protocol == 17) {
+      const struct udphdr *udpptr = static_cast<const struct udphdr*>(
+        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      headers.push_back("udp_t");
+      if (udpptr->uh_dport == htons(53)) {
+        headers.push_back("dns_t");
+      }
+    }
+  }
+  return headers;
 }

@@ -32,6 +32,7 @@
 #define BEHAVIOURAL_CONTROLPLANE_H_
 #include <string>
 #include <vector>
+#include <map>
 #include "../structural/ControlPlaneSIM.h"
 #include "pfpsim/pfpsim.h"
 
@@ -49,11 +50,6 @@ class ControlPlane: public ControlPlaneSIM,
   virtual ~ControlPlane() = default;
  public:
   void init();
-
-  // Receive packet from forwarding plane and perform required actions
-void ControlPlane_PortServiceThread();
-
-
 
   // Implementing methods from CPDebuggerInterface
   void do_command(std::string cmd) override;
@@ -81,12 +77,17 @@ void ControlPlane_PortServiceThread();
   void _delete_entry(std::string table_name, uint64_t handle);
   void _modify_entry(std::string table_name, uint64_t handle,
         std::string action_name, std::vector<std::string> action_data);
+
+  // Receive packet from forwarding plane and perform required actions
+  void ControlPlane_InPortServiceThread();
+  void ControlPlane_OutPortServiceThread();
+
+
   std::vector<sc_process_handle> ThreadHandles;
 
   MTQueue<std::shared_ptr<pfp::cp::Command> > command_queue;
 
   std::map<std::string, size_t> load_balancer_table;
-
 };
 
 #endif  // BEHAVIOURAL_CONTROLPLANE_H_

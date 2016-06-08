@@ -45,6 +45,7 @@ UDPServer::UDPServer(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     full_name.append("_server.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
+  initializeServer();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(sc_bind
     (&UDPServer::outgoingPackets_thread, this)));
@@ -63,6 +64,29 @@ void UDPServer::UDPServer_PortServiceThread() {
 }
 void UDPServer::UDPServerThread(std::size_t thread_id) {
   // Thread function for module functionalty
+}
+void UDPServer::initializeServer() {
+  TestbedUtilities util;
+  npulog(profile, cout << "Creating a new session" << endl;)
+  std::string serverID =
+    util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
+  npulog(profile, cout << "Add server instance: " << serverID << endl;)
+  server_sessions.insert(std::pair<std::string, size_t>(serverID, 0));
+
+  std::shared_ptr<TestbedPacket> lb_packet =
+    std::make_shared<TestbedPacket>();
+  util.getLoadBalancerPacket(lb_packet, server_sessions,
+    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    received_packet, ncs.list);
+  // SimulationParameters["dns_load_balancer"].get()
+  std::vector<std::string> hdrList;
+  hdrList.push_back("ethernet_t");
+  hdrList.push_back("ipv4_t");
+  hdrList.push_back("udp_t");
+  util.finalizePacket(lb_packet, hdrList);
+  npulog(profile, cout << "Pushing load balancing packet for table update - 01"
+    << endl;)
+  outgoing_packets.push(lb_packet);
 }
 void UDPServer::populateLocalMap() {
   std::string tempstr = GetParameter("type").get();
@@ -85,6 +109,8 @@ void UDPServer::populateLocalMap() {
   local_map.insert(std::pair<std::string, std::string>("dhcpPolicy", tempstr));
   tempstr = GetParameter("dhcpPool").get();
   local_map.insert(std::pair<std::string, std::string>("dhcpPool", tempstr));
+  tempstr = GetParameter("URL").get();
+  local_map.insert(std::pair<std::string, std::string>("URL", tempstr));
 }
 
 // Administrative methods
@@ -116,37 +142,36 @@ void UDPServer::validatePacketSource_thread() {
       ncs.list, "src");
     // Check if we have an ongoing file with the client
     // If yes, call the method to execute sending the payload
-    // else, execute the method to establish TCP connection
+    // else, execute the method to establish UDP connection
     struct ConnectionDetails cdet;
+    std::string dnsreply;
     if (client_instances.find(clientID) == client_instances.end()) {
       npulog(profile, cout << "Server got new request from client: "
       << clientID << endl;)
       // An UDP server goes to file size send mode upon receiving a
       // packet from a new client
-      cdet.connection_state = serverQuery;
+      npulog(minimal, cout << "Server got new session request from client: "
+        << clientID << endl;)
+      cdet.connection_state = connectionSetup;  // serverQuery;
       cdet.fileIndex = -1;
       cdet.file_pending = 0;
       cdet.active = true;
       client_instances.insert(
         std::pair<std::string, struct ConnectionDetails>(clientID, cdet));
-      // std::string  serverID = util.getIPAddress(received_packet->getData(),
-      //  ncs.list, "dst");
-      // server_sessions[serverID]++;
-      // serverSessionsManager();
-    } else {
+      dnsreply = serverSessionsManager();
+      } else {
       cdet = client_instances.find(clientID)->second;
       if (cdet.active == false) {
         npulog(profile, cout << "Reactivating an old connection" << endl;)
-        cdet.connection_state = serverQuery;
+        npulog(minimal, cout << "Reactivating an old session"
+          << endl;)
+        cdet.connection_state = connectionSetup;  // serverQuery;
         cdet.file_pending = 0;
         cdet.active = true;
         client_instances[clientID] = cdet;
         npulog(profile, cout << "Prev file index was: " << cdet.fileIndex
         << endl;)
-        // std::string  serverID = util.getIPAddress(received_packet->getData(),
-        //  ncs.list, "dst");
-        // server_sessions[serverID]++;
-        // serverSessionsManager();
+        dnsreply = serverSessionsManager();
       } else {
         npulog(profile, cout << "Continuation of an active connection"
           << endl;)
@@ -154,10 +179,10 @@ void UDPServer::validatePacketSource_thread() {
     }
     switch (cdet.connection_state) {
       case serverQuery:
-        assignServer();
+        assignServer(dnsreply);
         break;
       case connectionSetup:
-        // establishConnection();
+        establishConnection();
         break;
       case fileRequest:
         // a server does not request files
@@ -292,13 +317,21 @@ std::string UDPServer::serverSessionsManager() {
   npulog(profile, cout << "ReceivedPacket serverID : " << serverID << endl;)
   std::vector<std::string> baseIPs = util.getBaseIPs(ncs.prefixes);
   if (std::find(baseIPs.begin(), baseIPs.end(), serverID) == baseIPs.end()) {
-    if (server_sessions[serverID] > maxSessions) {
+    npulog(profile, cout << "The serverID does not belong to any of the base "
+      << "IPs" << endl;)
+    if (server_sessions[serverID] == maxSessions - 1) {
       npulog(profile, cout << "WARNING: The server "<< serverID
-        << " has reached/ exceeded its capacity - " << server_sessions[serverID]
-        << " sessions!" << endl;)
+        << " instance is reaching its capacity - "
+        << static_cast<int>(server_sessions[serverID])
+        << " active sessions!" << endl;)
+      npulog(profile, cout << "Creating a new session" << endl;)
+      std::string newServerID =
+        util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
+      npulog(profile, cout << "Add server instance: " << newServerID << endl;)
+      server_sessions.insert(std::pair<std::string, size_t>(newServerID, 0));
     }
   } else {
-    npulog(profile, cout << "Received packet was received by the virtual server"
+    npulog(profile, cout << "Packet was received by the virtual server"
       << endl;)
     // assign it to a new serverSession
     // The received packet is destined for the virtual server
@@ -328,19 +361,36 @@ std::string UDPServer::serverSessionsManager() {
   // we will decrease the server load
   std::string clientID = util.getIPAddress(received_packet->getData(),
     ncs.list, "src");
+  npulog(profile, cout << "Number of client instances"
+    << client_instances.size() << endl;)
+  if (client_instances.find(clientID) == client_instances.end()) {
+    npulog(profile, cout << "The client instance was not found??" << endl;)
+    assert(false);
+  }
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
-  if (cdet->connection_state == serverQuery) {
+  npulog(profile, cout << "Connection state is: " << cdet->connection_state
+    << endl;)
+  if (cdet->connection_state == connectionSetup ||
+    cdet->connection_state == fileResponse ||
+    cdet->connection_state == serverQuery) {  // serverQuery) {
+    npulog(profile, cout << "incrementing server_sessions count" << endl;)
     server_sessions[serverID]++;
   } else if (cdet->connection_state == connectionTeardown) {
+    npulog(profile, cout << "decrementing server_sessions count" << endl;)
     server_sessions[serverID]--;
   }
   if (!server_sessions.empty()) {
-    // We delete the server instance with zero load
+    // We delete the server instances with zero load
+    // At max, we keep only one server instance with zero load ;)
+    size_t zero_session_servers = 0;
     std::vector<std::string> deleteInstances;
     for (std::map<std::string, size_t>::iterator it = server_sessions.begin();
       it != server_sessions.end(); ++it) {
       if (it->second <= 0) {
-        deleteInstances.push_back(it->first);
+        zero_session_servers++;
+        if (zero_session_servers > 1) {
+          deleteInstances.push_back(it->first);
+        }
       }
     }
     for (std::string sid : deleteInstances) {
@@ -354,18 +404,25 @@ std::string UDPServer::serverSessionsManager() {
   // we use the 0th base IP as our node ID
   std::shared_ptr<TestbedPacket> lb_packet =
     std::make_shared<TestbedPacket>();
-  util.getLoadBalancerPacket(lb_packet, server_sessions, baseIPs.at(0),
-    SimulationParameters["controller_ip"].get(), received_packet, ncs.list);
+  npulog(profile, cout << "Number of server sessions: " <<
+    server_sessions.size() << endl;)
+  util.getLoadBalancerPacket(lb_packet, server_sessions,
+    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    received_packet, ncs.list);
+  npulog(profile, cout << "Size of Load Balancer packer: "
+    << lb_packet->getData().size() << endl;)
   std::vector<std::string> hdrList;
   hdrList.push_back("ethernet_t");
   hdrList.push_back("ipv4_t");
   hdrList.push_back("udp_t");
   util.finalizePacket(lb_packet, hdrList);
+  npulog(profile, cout << "Pushing load balancing packet for table update - 02"
+    << endl;)
   outgoing_packets.push(lb_packet);
   return serverID;
 }
 // Behavioral methods
-void UDPServer::assignServer() {
+void UDPServer::assignServer(std::string dnsreply) {
   TestbedUtilities util;
   // All our DNS packets will be UDP packets for the sake of simplicity
   // 1. type = 0 : DNS Query
@@ -376,7 +433,6 @@ void UDPServer::assignServer() {
   hdrList.push_back("ipv4_t");
   hdrList.push_back("udp_t");
   hdrList.push_back("dns_t");
-  std::string dnsreply = serverSessionsManager();
   util.getDnsPacket(received_packet, resPacket, 1, hdrList, dnsreply);
   util.finalizePacket(resPacket, hdrList);
   outgoing_packets.push(resPacket);
@@ -389,6 +445,12 @@ void UDPServer::assignServer() {
 }
 void UDPServer::establishConnection() {
   // Not required for UDP connections
+  TestbedUtilities util;
+  std::string clientID = util.getIPAddress(received_packet->getData(),
+    ncs.list, "src");
+  struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
+  cdet->connection_state = fileResponse;
+  registerFile();
 }
 void UDPServer::registerFile() {
   // Keep receiving packets at this state unless we get a fileID request
@@ -453,7 +515,6 @@ void UDPServer::registerFile() {
   cdet->connection_state = fileProcessing;
   cdet->file_pending = fileSize;
   // client_instances[srcIP] = cdet;
-
   // In UDP we don't wait for any packet from the client before
   // starting the file transfer...
   processFile();
@@ -499,6 +560,8 @@ void UDPServer::processFile() {
     // Using this stage to make server sessions work
     cdet->connection_state = connectionTeardown;
     cdet->active = false;
+    npulog(profile, cout << "Deleting server session" << endl;)
+    npulog(minimal, cout << "UDPServer: " << "Deleting server session" << endl;)
     serverSessionsManager();
   } else {
     cdet->connection_state = idle;

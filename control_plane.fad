@@ -1,0 +1,19 @@
+import forwarding_plane;
+
+PE LoadBalancer {
+  QueueRdI in;
+  QueueWrI out;
+};
+
+PE ControlPlane {
+  QueueRdI in;
+  QueueWrI out;
+
+  ControlPlaneAgentS cpa;
+
+  Queue lb_in_q, lb_out_q;
+
+  LoadBalancer load_balancer;
+  bind load_balancer.in  {lb_in_q};
+  bind load_balancer.out {lb_out_q};
+};

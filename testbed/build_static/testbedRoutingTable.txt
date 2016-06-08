@@ -38,6 +38,7 @@ insert_entry ipv4_lpm 248.45.24.21/16      set_nhop 10.15.0.0  9
 insert_entry ipv4_lpm 157.244.34.233/16    set_nhop 11.15.0.0  10
 insert_entry ipv4_lpm 249.45.24.21/16      set_nhop 10.16.0.0  9
 insert_entry ipv4_lpm 167.244.34.233/16    set_nhop 11.16.0.0  10
+#entry for the control plane controller - dns_load_balancer
 insert_entry ipv4_lpm 50.54.33.36/32       set_nhop 12.1.0.0  11
 
 # forward
