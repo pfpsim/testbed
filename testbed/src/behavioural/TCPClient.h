@@ -74,6 +74,7 @@ class TCPClient: public TCPClientSIM {
   void teardownConnection();
 
  private:
+  sc_event reactivate_client_instance_event;
   sc_event activate_client_instance_event;
   std::map<std::string, std::string> local_map;
   std::shared_ptr<PcapLogger> pcap_logger;
@@ -81,6 +82,7 @@ class TCPClient: public TCPClientSIM {
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::map<std::string, struct ConnectionDetails> client_instances;
   std::shared_ptr<TestbedPacket> received_packet;
+  std::ofstream outlog;
 };
 
 #endif  // BEHAVIOURAL_TCPCLIENT_H_

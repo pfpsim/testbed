@@ -41,4 +41,4 @@ else
 fi
 echo $vlvl
 #./testbed-sim -c Configs/ -Xp4 testbed_router.json -Xtpop testbedRoutingTable.txt -v "$vlvl"
-./testbed-sim -c Configs/ -Xp4 testbed_router.json -Xtpop testbedRoutingTable.txt -Xin Configs/input.pcap -Xvalidation-out reordered-output.pcap -v "$vlvl"
+./testbed-sim -c Configs/ -Xp4 testbed_router.json -Xtpop testbedRoutingTable.txt -v "$vlvl"

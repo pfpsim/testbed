@@ -55,13 +55,8 @@ void TestbedDemux::processPacketStream() {
       std::dynamic_pointer_cast<TestbedPacket>(incoming_packet)) {
       size_t port_number = testbed_packet->getEgressPort() - 1;
       if (port_number >= out.size()) {
-        npulog(profile, cout << "FATAL: Going for port number: "
-        << port_number << endl;)
-        // reinsertPacket(outgoing);
         assert(false);
       } else {
-        npulog(profile, cout << "Going for port number: " << port_number
-        << endl;)
         out[port_number]->put(testbed_packet);
         pcap_logger->logPacket(testbed_packet->getData(), sc_time_stamp());
       }
@@ -74,13 +69,8 @@ void TestbedDemux::processPacketStream() {
         npu_packet->data().begin(), npu_packet->data().end());
       testbed_packet->setEgressPort(port_number);
       if (port_number >= out.size()) {
-        npulog(profile, cout << "FATAL: Going for port number: "
-        << port_number << endl;)
-        // reinsertPacket(outgoing);
         assert(false);
       } else {
-        npulog(profile, cout << "Going for port number: " << port_number
-        << endl;)
         out[port_number]->put(testbed_packet);
         pcap_logger->logPacket(testbed_packet->getData(), sc_time_stamp());
       }
@@ -88,10 +78,6 @@ void TestbedDemux::processPacketStream() {
   }
 }
 void TestbedDemux::analyzeMetrics() {
-  // while (true) {
-  //  std::shared_ptr<pfp::core::TrType> bp = bypass->get();
-  // delete(bp);
-  // }
 }
 void TestbedDemux::reinsertPacket(std::shared_ptr<TestbedPacket> packet) {
   loop_out->put(packet);

@@ -194,8 +194,6 @@ void ControlPlane::process(pfp::cp::FailedResult*) {
 void ControlPlane::ControlPlane_InPortServiceThread() {
   while (true) {
     auto received_packet = in->get();
-    npulog(profile, cout << "We received a packet at the control plane!!"
-      << endl;)
     // Currently all packets that we receive will be for load balancing only
     // Assuming a ethernet_t, ipv4_t and udp_t pattern of headers
 
@@ -208,17 +206,11 @@ void ControlPlane::ControlPlane_InPortServiceThread() {
       std::shared_ptr<TestbedPacket> testbed_packet =
         std::dynamic_pointer_cast<TestbedPacket>(received_packet);
       TestbedUtilities util;
-      // TODO(faras): Implement a util method to extract headers from a
-      // packet stream getPacketHeaderList(std::vector<uint8_t> packet)
-      std::vector<std::string> headers;
-      headers.push_back("ethernet_t");
-      headers.push_back("ipv4_t");
+      std::vector<std::string> headers =
+        util.getPacketHeaders(testbed_packet);
       std::string received_packet_ip = util.getIPAddress(
         testbed_packet->getData(), headers, "dst");
       if (received_packet_ip.compare(dns_load_balancer_ip) == 0) {
-        npulog(profile, cout << "This packet is destined for the dns"
-          << " load balancer" << endl;)
-        // Queue lb_in_q, lb_out_q;
         lb_in_q.put(received_packet);
       } else {
         npulog(profile, cout << "Control plane received stray packet"

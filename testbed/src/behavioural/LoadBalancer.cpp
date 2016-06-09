@@ -34,7 +34,9 @@
 #include <map>
 #include <utility>
 
-LoadBalancer::LoadBalancer(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):LoadBalancerSIM(nm,parent,configfile) {  // NOLINT
+LoadBalancer::LoadBalancer(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):LoadBalancerSIM(nm,parent,configfile),outlog(OUTPUTDIR+"DNSrecords.csv") {  // NOLINT
+  outlog << "LogicalTime,Client,ServerAssigned,VirtualInstances(Load)"
+    << endl;
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
     sc_bind(&LoadBalancer::LoadBalancer_PortServiceThread, this)));
@@ -53,9 +55,6 @@ void LoadBalancer::LoadBalancer_PortServiceThread() {
     if (std::dynamic_pointer_cast<TestbedPacket>(received_packet)) {
       rcvd_testbed_packet =
         std::dynamic_pointer_cast<TestbedPacket>(received_packet);
-      npulog(profile, cout << "received a packet in the load balancer"
-        << std::endl;)
-
       std::vector<std::string> headers;
       headers.push_back("ethernet_t");
       headers.push_back("ipv4_t");
@@ -63,13 +62,10 @@ void LoadBalancer::LoadBalancer_PortServiceThread() {
       struct udphdr *udpptr = (struct udphdr*)
         (rcvd_testbed_packet->getData().data() + headerLen);
       uint16_t dport = ntohs(udpptr->uh_dport);
-      npulog(profile, cout << "Destination port is: " << dport << endl;)
       // DNS Requests are sent to port 53 or a table update request?
       if (dport == 53) {
-        npulog(profile, cout << "This is a DNS Request" << endl;)
         invokeDNS();
       } else {
-        npulog(profile, cout << "This is a table update request" << endl;)
         updateServerSessionsTable();
       }
     }
@@ -102,7 +98,6 @@ std::string LoadBalancer::getServerInstanceAddress() {
     index = index + letters;
   }
   std::string serverURL = std::string(buffer);
-  npulog(profile, cout << "Server URL is: " << serverURL << endl;)
   return serverURL;
 }
 void LoadBalancer::outgoingPackets_thread() {
@@ -111,24 +106,16 @@ void LoadBalancer::outgoingPackets_thread() {
     std::shared_ptr<TestbedPacket> packet =
     std::dynamic_pointer_cast<TestbedPacket>(outgoing_packets.pop());
     if (!out->nb_can_put()) {
-      npulog(profile, cout << "LoadBalancer stuck at MUX Ingress! This is bad!"
-      << endl;)
       gotStuck = true;
     }
     out->put(packet);
-    // if (ncs.archive) {
-    //  pcap_logger->logPacket(packet->setData(), sc_time_stamp());
-    // }
     if (gotStuck) {
-      npulog(profile, cout << "LoadBalancer resumed packet flow to ingress"
-      <<" of MUX"  << endl;)
       gotStuck = false;
     }
   }
 }
 void LoadBalancer::invokeDNS() {
   TestbedUtilities util;
-  npulog(minimal, cout << Yellow << "LoadBalancer DNS Request {session}";)
   std::vector<std::string> headers = util.getPacketHeaders(rcvd_testbed_packet);
   std::string serverURL = getServerInstanceAddress();
   std::pair<
@@ -138,6 +125,13 @@ void LoadBalancer::invokeDNS() {
 
   std::string serverIP;
   int serverLoad = -1;
+  std::string output = "DNS: ";
+  output.append(std::to_string(server_sessions_table.count(serverURL)));
+  output.append(" instances for ");
+  output.append(serverURL);
+  output.append("[");
+  std::string tempLogger;
+  tempLogger.append("[");
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
     iter != ppp.second; ++iter) {
@@ -149,21 +143,13 @@ void LoadBalancer::invokeDNS() {
       serverIP = instance_values.first;
       serverLoad = instance_values.second;
     }
-    npulog(profile, cout << "Values [" << iter->first << ": "
-      << iter->second.first << ", " << iter->second.second << "]" << endl;)
-    // cout << Yellow << "LoadBalancer: session [" << iter->first << ": "
-    //    << iter->second.first << ", " << iter->second.second << "]"
-    //    << txtrst << endl;
   }
-  npulog(profile, cout << "Least loaded server: " << serverIP << "["
-    << serverLoad << "]" << endl;)
-  // cout << Yellow << "LoadBalancer: Least loaded server session: "
-  //  << serverIP << "[" << serverLoad << "]" << txtrst << endl;
   std::shared_ptr<TestbedPacket> resPacket =
     std::make_shared<TestbedPacket>();
   util.getDnsPacket(rcvd_testbed_packet, resPacket, 1, headers, serverIP);
   util.finalizePacket(resPacket, headers);
   outgoing_packets.push(resPacket);
+
 
   // Update the server_sessions_table instance value
   for (std::multimap<std::string,
@@ -172,26 +158,33 @@ void LoadBalancer::invokeDNS() {
     instance_infotype instance_values = (*iter).second;
     if (serverIP.compare(instance_values.first) == 0) {
       iter->second.second++;
-      npulog(profile, cout << "Updated [" << iter->first << ": "
-        << iter->second.first << ", " << iter->second.second << "]" << endl;)
-    //  cout << Yellow << "LoadBalancer: session updated ["
-    //    << iter->first << ": " << iter->second.first << ", "
-    //    << iter->second.second << "]" << txtrst << endl;
       break;
     }
   }
-  npulog(minimal, cout << Yellow << "LoadBalancer: session updated [";)
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
     iter != ppp.second; ++iter) {
-    cout << iter->second.second << ", ";
+    output.append(iter->second.first);
+    output.append("(");
+    output.append(std::to_string(iter->second.second));
+    output.append("); ");
+    tempLogger.append(iter->second.first);
+    tempLogger.append("(");
+    tempLogger.append(std::to_string(iter->second.second));
+    tempLogger.append("); ");
   }
-  cout << "]" << txtrst << endl;
+  tempLogger.append("]");
+  outlog << sc_time_stamp().to_default_time_units() << ","
+    << util.getIPAddress(rcvd_testbed_packet->getData(), headers, "src")
+    << "," << serverIP << ","
+    // << serverURL << ","
+    << tempLogger << endl;
+  output.append("]");
+  npulog(profile, cout << output << endl;)
 }
 void LoadBalancer::updateServerSessionsTable() {
   TestbedUtilities util;
   std::vector<std::string> headers = util.getPacketHeaders(rcvd_testbed_packet);
-  npulog(minimal, cout << Yellow << "LoadBalancer updated! {session}";)
   size_t urlLen = 0;
   uint32_t headerLen = util.getHeaderLength(headers);
   std::vector<uint8_t> temp_vector;
@@ -214,20 +207,19 @@ void LoadBalancer::updateServerSessionsTable() {
     index = index + letters;
   }
   std::string node_id = std::string(buffer);
-  npulog(profile, cout << "node id is: " << node_id;)
-  // cout << Yellow << ": " << node_id;
   urlLen += 4 - (urlLen % 4);
   temp_vector.clear();
   uint32_t instances_count = ntohl(*(static_cast<uint32_t*>(
     static_cast<void*>(rcvd_testbed_packet->setData().data() + headerLen
     + urlLen))));
-  cout << ". Number of virtual instances: "
-    << instances_count;
   // So first, I erase all entries corresponding to this node ID, and then I
   // reinsert those values so that controller is updated with the server
   server_sessions_table.erase(node_id);
+  std::string output;
+  output.append("Update ");
+  output.append(node_id);
+  output.append("[");
   size_t iid_load_len = sizeof(struct in_addr) + sizeof(uint32_t);
-  cout << "[";
   for (size_t index = 0; index < instances_count; index++) {
     struct in_addr *tempip;
     size_t pos = headerLen + urlLen + sizeof(uint32_t)
@@ -238,19 +230,16 @@ void LoadBalancer::updateServerSessionsTable() {
     uint32_t instance_load = ntohl(*(static_cast<uint32_t*>(
       static_cast<void*>(rcvd_testbed_packet->setData().data() + pos
       + sizeof(struct in_addr)))));
-
-    // npulog(profile, cout << "Instance: " << instance_id << " has load "
-    //  << instance_load << endl;)
     // I want a server_sessions_table: node_id, instance_id, load
     instance_infotype instance_values(instance_id, instance_load);
-    // cout << Yellow << "Instance: " << instance_id << " has load "
-    //  << instance_load  << endl;
     server_sessions_table.insert(
       std::pair<std::string,
       instance_infotype >(node_id, instance_values));
-    cout << instance_load << ", ";
-    // cout << "Number of entries in server_sessions_table: "
-    //  << server_sessions_table.size() << endl;
+    output.append(instance_id);
+    output.append("(");
+    output.append(std::to_string(instance_load));
+    output.append("); ");
   }
-  cout << "]" << endl;
+  output.append("]");
+  npulog(profile, cout << output << endl;)
 }

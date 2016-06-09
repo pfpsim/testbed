@@ -83,7 +83,6 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
       (packetCount, npu_packet_tuple);
 
     incomingPackets.push(input_stimulus_packet);
-    npulog(profile, cout << packetCount << " packets sent to NPU" << endl;)
     muxLock.unlock();
   }
 }
@@ -97,14 +96,12 @@ void TestbedMux::TestbedMuxThread(std::size_t thread_id) {
     // BypassPacket bp(0, sc_time_stamp(), cpTime);
     // bypass->put(&bp);
     if (!out->nb_can_put()) {
-      npulog(profile, cout << "Stuck at NPU Ingress! This is bad! Logical"
-      << " Time: " << sc_time_stamp() << endl;)
       gotStuck = true;
     }
     out->put(packet);
+    // Trying to implement network delays for every packet send
+    // wait(.5, SC_MS);
     if (gotStuck) {
-      npulog(profile, cout << "Resumed packet flow to ingress at logical "
-      << "time: " << sc_time_stamp() << endl;)
       gotStuck = false;
     }
   }

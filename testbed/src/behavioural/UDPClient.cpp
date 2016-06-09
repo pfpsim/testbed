@@ -129,13 +129,13 @@ void UDPClient::activateClientInstance_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    npulog(profile, cout << "Configuration specifies zero live instances!"
-    << endl;)
+    // Configuration specifies zero live instances!"
+
     return;
   }
   if (ncs.end_time.to_seconds() == 0) {
-    npulog(profile, cout << "Configuration specifies zero life time"
-    << endl;)
+    // Configuration specifies zero life time"
+
     return;
   }
   size_t maxHeaderIndex = ncs.header_data.size();
@@ -149,16 +149,16 @@ void UDPClient::activateClientInstance_thread() {
   while (true) {
     // Should we continue the packet generation?
     if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
-      npulog(minimal, cout << "Simulation done for specified time! No more "
-      << "client instances will be activated! Waiting for exisiting processing "
-      << "to end." << endl;)
+      // cout << "Simulation done for specified time! No more "
+      // "client instances will be activated! Waiting for exisiting processing "
+      // "to end."
       return;
     }
     // size_t activeClients = 0;
     for (std::map<std::string, struct ConnectionDetails>::iterator it
     = client_instances.begin(); it != client_instances.end(); ++it) {
       if (!it->second.active) {
-        npulog(profile, cout << "Activating a client Instance." << endl;)
+        // Activating a client Instance.
         // Either add or activate a instance from allClientDetails map  and
         // send request for UDP file transfer
         if (ncs.delay.distribution.type.compare("round-robin") == 0) {
@@ -172,18 +172,16 @@ void UDPClient::activateClientInstance_thread() {
             ncs.delay.distribution.param2);
         }
         sc_time waittime = ncs.delay.delay_values.at(it->second.delayIndex);
-        npulog(profile, cout << "Adding client instance with idle delay of: "
-        << waittime << endl;)
+        // Adding client instance with idle delay of waittime
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
         it->second.file_pending = 0;
         it->second.active = true;
-        npulog(profile, cout << "Activating: " << it->first << endl;)
+        // Activating: " << it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
         acquireServerInstance(it->first);
-        npulog(profile, cout << "We activated a client instance. "
-          << "Waiting for it to connect!" << endl;)
+        // We activated a client instance. Waiting for it to connect!
         wait(activate_client_instance_event);
         // establishConnection(it->first);
       }
@@ -191,11 +189,10 @@ void UDPClient::activateClientInstance_thread() {
     // Wait for a client instance to be activated
     // A client instance will be activated if *timed out*
     // or after its UDP file transfer is done
-    npulog(profile, cout << "We activated the specified number of client "
-    << "instances. Waiting for next activation request!" << endl;)
+    // We activated the specified number of client "
+    // instances. Waiting for next activation request!
     wait(activate_client_instance_event);
-    npulog(profile, cout << "activate_client_instance_event notified. "
-      << endl;)
+    // activate_client_instance_event notified.
   }
 }
 void UDPClient::scheduler_thread() {
@@ -220,18 +217,17 @@ void UDPClient::scheduler_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    npulog(profile, cout << "Configuration specifies zero live instances!"
-    << endl;)
+    // Configuration specifies zero live instances!"
+
     return;
   } else if (ncs.end_time.to_seconds() == 0) {
-    npulog(profile, cout << "Configuration specifies zero life" << endl;)
+    // Configuration specifies zero life"
     return;
   }
   double rtime = 1;
   while (true) {
     if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
-      npulog(minimal, cout << "Simulation done for specified time! "
-      << "All files end!" << endl;)
+      // Simulation done for specified time! All files end!
       return;
     }
     int idleInstances = 0;
@@ -243,8 +239,7 @@ void UDPClient::scheduler_thread() {
       if (it->second.connection_state == idle) {
         if (it->second.wakeup <= sc_time_stamp()) {
           it->second.active = false;
-          npulog(profile, cout << "Re-activating client instance for the "
-          << "finished file. Wakeup!" << endl;)
+          // Re-activating client instance for the finished file. Wakeup!
           activate_client_instance_event.notify();
           // Allow the client thread to be instantiated immediately by yielding
           wait(SC_ZERO_TIME);
@@ -268,9 +263,8 @@ void UDPClient::scheduler_thread() {
     if (!clWakeup) {
       if (idleInstances == client_instances.size() &&
         !client_instances.empty()) {
-         npulog(profile, cout << "All client instances are idle["
-         << idleInstances << "]! Going for a wait now for "
-         << minTime << " ! " << endl;)
+         // All client instances are idle[idleInstances]!
+         // Going for a wait now for minTime
          wait(minTime);
          client_instances.find(minTimeCID)->second.active = false;
          // FOR ALL OTHER client instances which are also idle state,
@@ -281,8 +275,7 @@ void UDPClient::scheduler_thread() {
              it->second.idle_pending -= minTime;
            }
          }
-        npulog(profile, cout << "Activating client instance for the finished"
-        << " file." << endl;)
+        // Activating client instance for the finished file.
         activate_client_instance_event.notify();
         wait(SC_ZERO_TIME);
         rtime = 1;
@@ -290,8 +283,8 @@ void UDPClient::scheduler_thread() {
          // wait for resolution time
          wait(rtime, SC_NS);
          rtime = rtime*2;
-         // npulog(profile, cout << "udp client is uncontrolled!"
-         // << rtime << endl;)
+         // udp client is uncontrolled!"
+         // rtime
        }
     }
   }
@@ -302,8 +295,7 @@ void UDPClient::outgoingPackets_thread() {
     std::shared_ptr<TestbedPacket> packet =
     std::dynamic_pointer_cast<TestbedPacket>(outgoing_packets.pop());
     if (!out->nb_can_put()) {
-      npulog(profile, cout << "Client stuck at MUX Ingress!"
-          << " This is bad! Logical Time: " << sc_time_stamp() << endl;)
+      // Client stuck at MUX Ingress! This is bad!
       gotStuck = true;
     }
     out->put(packet);
@@ -311,8 +303,7 @@ void UDPClient::outgoingPackets_thread() {
       pcap_logger->logPacket(packet->setData(), sc_time_stamp());
     }
     if (gotStuck) {
-      npulog(profile, cout << "Client resumed packet flow to ingress of MUX"
-        << "at logical time: " << sc_time_stamp() << endl;)
+      // Client resumed packet flow to ingress of MUX
       gotStuck = false;
     }
   }
@@ -326,8 +317,7 @@ void UDPClient::validatePacketDestination_thread() {
     ncs.list, "dst");
     struct ConnectionDetails cdet;
     if (client_instances.find(clientID) == client_instances.end()) {
-      npulog(profile, cout << "Strange! We got a packet we have nothing to"
-      << " do with! Destined for: " <<clientID<< "! Ignored" << endl;)
+      // Strange! We got a packet we have nothing to do with! Ignored
       continue;
     } else {
       cdet = client_instances.find(clientID)->second;
@@ -377,7 +367,7 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     reqPacket->setData().insert(reqPacket->setData().begin(),
       cdet->received_header.begin(),
       cdet->received_header.end());
-    npulog(profile, cout << "Client sending DNS request!" << endl;)
+    // Client sending DNS request!"
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
       GetParameter("se_addr").get());
     util.finalizePacket(resPacket, hdrList);
@@ -386,8 +376,8 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
     clientID = util.getIPAddress(received_packet->getData(),
       hdrList, "dst");
-    npulog(profile, cout << "Client received DNS response. Client " << clientID
-      << " is assigned with server " << serverID << endl;)
+    // Client received DNS response. Client clientID is assigned
+    // with server serverID
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;
@@ -409,11 +399,10 @@ void UDPClient::establishConnection(std::string clientID,
       cdet->received_header.end());
     util.updateAddress(reqPacket, ncs.list, serverID, "dst");
     reqPacket->setData().push_back(129);
-    npulog(profile, cout << "Client "
-      << util.getIPAddress(reqPacket->getData(), ncs.list, "src")
-      << " is sending FileID to "
-      << util.getIPAddress(reqPacket->getData(), ncs.list, "dst")
-      << " as part of file request!" << endl;)
+    // Client util.getIPAddress(reqPacket->getData(), ncs.list, "src")
+    // is sending FileID to
+    // util.getIPAddress(reqPacket->getData(), ncs.list, "dst")
+    // as part of file request!
     util.finalizePacket(reqPacket, ncs.list);
     outgoing_packets.push(reqPacket);
     cdet->connection_state = fileResponse;
@@ -445,8 +434,7 @@ void UDPClient::registerFile() {
     // Ignoring till we get one.
     return;
   }
-  npulog(profile, cout << "Client received filesize of the requested fileID:"
-  << fileSize << endl;)
+  // Client received filesize of the requested fileID: fileSize
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileProcessing;
   cdet->file_pending = fileSize;
@@ -466,11 +454,10 @@ void UDPClient::processFile() {
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->file_pending -= payloadLen;
 
-  npulog(profile, cout << "Client received file packet. Pending payload: "
-  << cdet->file_pending << endl;)
+  // Client received file packet. Pending payload: cdet->file_pending
   if (cdet->file_pending <= 0) {
     // going to idle state and update the wake up time as well
-    npulog(profile, cout << "Client going to idle state." << endl;)
+    // Client going to idle state."
     cdet->connection_state = idle;
     cdet->wakeup = cdet->idle_pending + sc_time_stamp();
   } else {

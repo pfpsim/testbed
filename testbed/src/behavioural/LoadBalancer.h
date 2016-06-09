@@ -66,6 +66,7 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
     server_sessions_table;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::string getServerInstanceAddress();
+  std::ofstream outlog;
 };
 
 #endif  // BEHAVIOURAL_LOADBALANCER_H_

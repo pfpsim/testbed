@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):TCPClientSIM(nm,parent,configfile) {  // NOLINT
+TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):TCPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"ClientConnections.csv") {  // NOLINT
   std::istringstream cf(configfile);
   TestbedUtilities util;
   populateLocalMap();
@@ -45,6 +45,7 @@ TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     full_name.append("_client.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
+  outlog << "LogicalTime,Client,Server" << endl;
   addClientInstances();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -129,13 +130,13 @@ void TCPClient::activateClientInstance_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    npulog(profile, cout << "Configuration specifies zero live instances!"
-    << endl;)
+    // Configuration specifies zero live instances!
+
     return;
   }
   if (ncs.end_time.to_seconds() == 0) {
-    npulog(profile, cout << "Configuration specifies zero life time"
-    << endl;)
+    // Configuration specifies zero life time
+
     return;
   }
   size_t maxHeaderIndex = ncs.header_data.size();
@@ -149,16 +150,16 @@ void TCPClient::activateClientInstance_thread() {
   while (true) {
     // Should we continue the packet generation?
     if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
-      npulog(minimal, cout << "Simulation done for specified time! No more "
-      << "client instances will be activated! Waiting for exisiting processing "
-      << "to end." << endl;)
+      // Simulation done for specified time! No more
+      // client instances will be activated! Waiting for exisiting processing
+      // to end.
       return;
     }
     // size_t activeClients = 0;
     for (std::map<std::string, struct ConnectionDetails>::iterator it
     = client_instances.begin(); it != client_instances.end(); ++it) {
       if (!it->second.active) {
-        npulog(profile, cout << "Activating a client Instance." << endl;)
+        // Activating a client Instance.
         // Either add or activate a instance from allClientDetails map  and
         // send request for TCP file transfer
         if (ncs.delay.distribution.type.compare("round-robin") == 0) {
@@ -172,18 +173,17 @@ void TCPClient::activateClientInstance_thread() {
             ncs.delay.distribution.param2);
         }
         sc_time waittime = ncs.delay.delay_values.at(it->second.delayIndex);
-        npulog(profile, cout << "Adding client instance with idle delay of: "
-        << waittime << endl;)
+        // Adding client instance with idle delay of: waittime
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
         it->second.file_pending = 0;
         it->second.active = true;
-        npulog(profile, cout << "Activating: " << it->first << endl;)
+        // Activating: it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
         acquireServerInstance(it->first);
-        npulog(profile, cout << "We activated a client instance. "
-          << "Waiting for it to connect!" << endl;)
+        // We activated a client instance. Waiting for it to connect!
+        // cout << "Wait for client to get connected" << endl;
         wait(activate_client_instance_event);
         // establishConnection(it->first);
       }
@@ -191,11 +191,11 @@ void TCPClient::activateClientInstance_thread() {
     // Wait for a client instance to be activated
     // A client instance will be activated if *timed out*
     // or after its TCP file transfer is done
-    npulog(profile, cout << "We activated the specified number of client "
-    << "instances. Waiting for next activation request!" << endl;)
-    wait(activate_client_instance_event);
-    npulog(profile, cout << "activate_client_instance_event notified. "
-      << endl;)
+    // We activated the specified number of client instances.
+    // Waiting for next activation request!
+    // cout << "Wait for client to get reactivated" << endl;
+    wait(reactivate_client_instance_event);
+    // reactivate_client_instance_event notified.
   }
 }
 void TCPClient::scheduler_thread() {
@@ -220,18 +220,17 @@ void TCPClient::scheduler_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    npulog(profile, cout << "Configuration specifies zero live instances!"
-    << endl;)
+    // Configuration specifies zero live instances!
+
     return;
   } else if (ncs.end_time.to_seconds() == 0) {
-    npulog(profile, cout << "Configuration specifies zero life" << endl;)
+    // Configuration specifies zero life
     return;
   }
   double rtime = 1;
   while (true) {
     if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
-      npulog(minimal, cout << "Simulation done for specified time! "
-      << "All files end!" << endl;)
+      // Simulation done for specified time! All files end!
       return;
     }
     int idleInstances = 0;
@@ -243,9 +242,10 @@ void TCPClient::scheduler_thread() {
       if (it->second.connection_state == idle) {
         if (it->second.wakeup <= sc_time_stamp()) {
           it->second.active = false;
-          npulog(profile, cout << "Re-activating client instance for the "
-          << "finished file. Wakeup!" << endl;)
-          activate_client_instance_event.notify();
+          it->second.connection_state = serverQuery;
+          // Re-activating client instance for the finished file. Wakeup!
+          // cout << "wake up client" << endl;
+          reactivate_client_instance_event.notify();
           // Allow the client thread to be instantiated immediately by yielding
           wait(SC_ZERO_TIME);
           clWakeup = true;
@@ -268,9 +268,8 @@ void TCPClient::scheduler_thread() {
     if (!clWakeup) {
       if (idleInstances == client_instances.size() &&
         !client_instances.empty()) {
-         npulog(profile, cout << "All client instances are idle["
-         << idleInstances << "]! Going for a wait now for "
-         << minTime << " ! " << endl;)
+         // All client instances are idle[idleInstances]!
+         // Going for a wait now for minTime!
          wait(minTime);
          client_instances.find(minTimeCID)->second.active = false;
          // FOR ALL OTHER client instances which are also idle state,
@@ -281,17 +280,17 @@ void TCPClient::scheduler_thread() {
              it->second.idle_pending -= minTime;
            }
          }
-        npulog(profile, cout << "Activating client instance for the finished"
-        << " file." << endl;)
-        activate_client_instance_event.notify();
+        // Activating client instance for the finished file.
+        // npulog(profile, cout << "client idle time over" << endl;)
+
+        reactivate_client_instance_event.notify();
         wait(SC_ZERO_TIME);
         rtime = 1;
        } else {
          // wait for resolution time
          wait(rtime, SC_NS);
          rtime = rtime*2;
-         // npulog(profile, cout << "tcp client is uncontrolled!"
-         // << rtime << endl;)
+         // tcp client is uncontrolled!
        }
     }
   }
@@ -302,8 +301,7 @@ void TCPClient::outgoingPackets_thread() {
     std::shared_ptr<TestbedPacket> packet =
     std::dynamic_pointer_cast<TestbedPacket>(outgoing_packets.pop());
     if (!out->nb_can_put()) {
-      npulog(profile, cout << "Client stuck at MUX Ingress!"
-          << " This is bad! Logical Time: " << sc_time_stamp() << endl;)
+      // Client stuck at MUX Ingress! This is bad!
       gotStuck = true;
     }
     out->put(packet);
@@ -311,8 +309,7 @@ void TCPClient::outgoingPackets_thread() {
       pcap_logger->logPacket(packet->setData(), sc_time_stamp());
     }
     if (gotStuck) {
-      npulog(profile, cout << "Client resumed packet flow to ingress of MUX"
-        << "at logical time: " << sc_time_stamp() << endl;)
+      // Client resumed packet flow to ingress of MUX
       gotStuck = false;
     }
   }
@@ -326,8 +323,7 @@ void TCPClient::validatePacketDestination_thread() {
     ncs.list, "dst");
     struct ConnectionDetails cdet;
     if (client_instances.find(clientID) == client_instances.end()) {
-      npulog(profile, cout << "Strange! We got a packet we have nothing to"
-      << " do with! Destined for: " <<clientID<< "! Ignored" << endl;)
+      // Strange! We got a packet we have nothing to do with! Ignored
       continue;
     } else {
       cdet = client_instances.find(clientID)->second;
@@ -377,7 +373,7 @@ void TCPClient::acquireServerInstance(std::string clientID) {
     reqPacket->setData().insert(reqPacket->setData().begin(),
       cdet->received_header.begin(),
       cdet->received_header.end());
-    npulog(profile, cout << "Client sending DNS request!" << endl;)
+    // Client sending DNS request!"
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
       GetParameter("se_addr").get());
     util.finalizePacket(resPacket, hdrList);
@@ -386,8 +382,12 @@ void TCPClient::acquireServerInstance(std::string clientID) {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
     clientID = util.getIPAddress(received_packet->getData(),
       hdrList, "dst");
-    npulog(profile, cout << "Client received DNS response. Client " << clientID
-      << " is assigned with server " << serverID << endl;)
+    // Client received DNS response.
+    npulog(profile, cout << Red << clientID << " is assigned with " << serverID
+      << txtrst << endl;)
+    outlog << sc_time_stamp().to_default_time_units() << ","
+      << clientID << ","
+      << serverID << endl;  // NOLINT
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;
@@ -410,12 +410,10 @@ void TCPClient::establishConnection(std::string clientID,
         cdet->received_header.begin(),
         cdet->received_header.end());
     util.updateAddress(reqPacket, ncs.list, serverID, "dst");
-    npulog(profile, cout << "Client "
-      << util.getIPAddress(reqPacket->getData(), ncs.list, "src")
-      << " header updated with received server address"
-      << util.getIPAddress(reqPacket->getData(), ncs.list, "dst") << endl;)
-    npulog(profile, cout << "Client " << clientID << " sending SYN packet to "
-      << serverID << "!" << endl;)
+    // Client util.getIPAddress(reqPacket->getData(), ncs.list, "src")
+    // header updated with received server address
+    // util.getIPAddress(reqPacket->getData(), ncs.list, "dst")
+    // clientID sending SYN packet to serverID!
     util.finalizePacket(reqPacket, ncs.list);
     outgoing_packets.push(reqPacket);
   } else {
@@ -425,10 +423,10 @@ void TCPClient::establishConnection(std::string clientID,
     = std::make_shared<TestbedPacket>();
     util.getResponseHeader(received_packet, reqPacket, -2, ncs.list);
     util.finalizePacket(reqPacket, ncs.list);
-    npulog(profile, cout << "Client sending ACK packet" << endl;)
+    // Client sending ACK packet
     outgoing_packets.push(reqPacket);
-    npulog(profile, cout << "Client connection established. Next client to be"
-      << " instantiated now!" << endl;)
+    // Client connection established. Next client to be instantiated now!
+    // cout << "Client connected" << endl;
     activate_client_instance_event.notify();
     requestFile();
   }
@@ -441,7 +439,7 @@ void TCPClient::requestFile() {
   util.getResponseHeader(received_packet, reqPacket, -2, ncs.list);
   reqPacket->setData().push_back(129);
   util.finalizePacket(reqPacket, ncs.list);
-  npulog(profile, cout << "Client sending file request packet" << endl;)
+  // Client sending file request packet"
   outgoing_packets.push(reqPacket);
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileResponse;
@@ -472,8 +470,7 @@ void TCPClient::registerFile() {
     std::make_shared<TestbedPacket>();
     util.getResponseHeader(received_packet, resPacket, payloadLen, ncs.list);
     util.finalizePacket(resPacket, ncs.list);
-    npulog(profile, cout << "Client sending ACK for received fileSize "
-            << fileSize << endl;)
+    // Client sending ACK for received fileSize
     outgoing_packets.push(resPacket);
 
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
@@ -503,8 +500,8 @@ void TCPClient::processFile() {
   util.finalizePacket(reqPacket, ncs.list);
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->file_pending -= payloadLen;
-  npulog(profile, cout << "Client sending ACK for received fileSize."
-      << " Pending payload: " << cdet->file_pending << endl;)
+  // Client sending ACK for received fileSize. Pending payload:
+  // cdet->file_pending
   outgoing_packets.push(reqPacket);
   // Simply calling the teardown Connection to send the RST packet_data_type
   if (cdet->file_pending <= 0) {
@@ -523,8 +520,8 @@ void TCPClient::teardownConnection() {
     = std::make_shared<TestbedPacket>();
   util.getResponseHeader(received_packet, reqPacket, -5, ncs.list);
   util.finalizePacket(reqPacket, ncs.list);
-  npulog(profile, cout << "Client sending RST to close the connection."
-          << endl;)
+  // Client sending RST to close the connection."
+
   outgoing_packets.push(reqPacket);
   // update state to idle and update the wake up time as well
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
