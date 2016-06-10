@@ -1,8 +1,15 @@
 import forwarding_plane;
+service LoadBalancerS;
 
 PE LoadBalancer {
   QueueRdI in;
   QueueWrI out;
+
+  LoadBalancerS lbs;
+};
+
+PE MainController implements LoadBalancerS {
+  ControlPlaneAgentS cpa;
 };
 
 PE ControlPlane {
@@ -11,9 +18,12 @@ PE ControlPlane {
 
   ControlPlaneAgentS cpa;
 
-  Queue lb_in_q, lb_out_q;
+  MainController main_controller;
+  bind main_controller.cpa {cpa};
 
   LoadBalancer load_balancer;
-  bind load_balancer.in  {lb_in_q};
-  bind load_balancer.out {lb_out_q};
+  bind load_balancer.in  {in};
+  bind load_balancer.out {out};
+
+  bind load_balancer.lbs {main_controller};
 };

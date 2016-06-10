@@ -38,10 +38,7 @@
 
 // TODO(gordon) namespace pfp {
 
-class ControlPlane: public ControlPlaneSIM,
-          public pfp::core::db::CPDebuggerInterface,
-          public pfp::cp::CommandProcessor,
-          public pfp::cp::ResultProcessor {
+class ControlPlane: public ControlPlaneSIM {
  public:
   SC_HAS_PROCESS(ControlPlane);
   /*Constructor*/
@@ -50,44 +47,10 @@ class ControlPlane: public ControlPlaneSIM,
   virtual ~ControlPlane() = default;
  public:
   void init();
-
-  // Implementing methods from CPDebuggerInterface
-  void do_command(std::string cmd) override;
-
-  // For pfp::cp::CommandProcessor
-  std::shared_ptr<pfp::cp::CommandResult>
-       process(pfp::cp::InsertCommand*) override;
-  std::shared_ptr<pfp::cp::CommandResult>
-       process(pfp::cp::ModifyCommand*) override;
-  std::shared_ptr<pfp::cp::CommandResult>
-       process(pfp::cp::DeleteCommand*) override;
-  std::shared_ptr<pfp::cp::CommandResult>
-       process(pfp::cp::BootCompleteCommand*) override;
-
-  // For pfp::cp::ResultProcessor
-  void process(pfp::cp::InsertResult*) override;
-  void process(pfp::cp::ModifyResult*) override;
-  void process(pfp::cp::DeleteResult*) override;
-  void process(pfp::cp::FailedResult*) override;
+  void* getParent();
  private:
   void ControlPlaneThread(std::size_t thread_id);
-  void command_processing_thread();
-  void _insert_entry(std::string table_name, std::string match_key,
-        std::string action_name, std::vector<std::string> action_data);
-  void _delete_entry(std::string table_name, uint64_t handle);
-  void _modify_entry(std::string table_name, uint64_t handle,
-        std::string action_name, std::vector<std::string> action_data);
-
-  // Receive packet from forwarding plane and perform required actions
-  void ControlPlane_InPortServiceThread();
-  void ControlPlane_OutPortServiceThread();
-
-
   std::vector<sc_process_handle> ThreadHandles;
-
-  MTQueue<std::shared_ptr<pfp::cp::Command> > command_queue;
-
-  std::map<std::string, size_t> load_balancer_table;
 };
 
 #endif  // BEHAVIOURAL_CONTROLPLANE_H_

@@ -28,19 +28,17 @@
  * 02110-1301, USA.
  */
 
-#include "./ControlPlane.h"
-#include <string>
+#ifndef BEHAVIOURAL_LOADBALANCERS_H_
+#define BEHAVIOURAL_LOADBALANCERS_H_
 
-ControlPlane::ControlPlane(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):ControlPlaneSIM(nm, parent, configfile) {  // NOLINT(whitespace/line_length)
-  /*sc_spawn threads*/
-}
+#include "systemc.h"  // NOLINT
+#include "tlm.h"  // NOLINT
+using tlm::tlm_tag;
 
-void ControlPlane::init() {
-  init_SIM(); /* Calls the init of sub PE's and CE's */
-}
-
-void ControlPlane::ControlPlaneThread(std::size_t thread_id) {
-}
-void* ControlPlane::getParent() {
-  return this->parent_;
-}
+class LoadBalancerS : public sc_interface {
+ public:
+  /* User Logic - Virtual Functions for interface go here */
+  virtual std::shared_ptr<pfp::cp::CommandResult>
+  send_command(const std::shared_ptr<pfp::cp::Command> & cmd) = 0;
+};
+#endif  // BEHAVIOURAL_LOADBALANCERS_H_

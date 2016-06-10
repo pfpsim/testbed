@@ -119,7 +119,7 @@ bm::MatchKeyParam to_p4_key(const pfp::cp::MatchKey * k) {
 
 std::shared_ptr<pfp::cp::CommandResult>
 ControlPlaneAgent::process(pfp::cp::InsertCommand * cmd) {
-  // cout << "Insert Command at ControlPlaneAgent" << endl;
+  cout << "Insert Command at ControlPlaneAgent" << endl;
 
   // Convert all of the match keys
   std::vector<bm::MatchKeyParam> keys;

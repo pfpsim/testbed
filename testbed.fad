@@ -104,7 +104,7 @@ PE top("TopConfig.cfg") {
   ControlPlane control_plane;
 
   bind control_plane.cpa {npu};
-  
+
   bind testbed.out_cp    {testbed_cp};
   bind control_plane.in  {testbed_cp};
   bind control_plane.out {cp_testbed};
