@@ -240,7 +240,7 @@ class TestbedUtilities {
   uint16_t calculateIPChecksum(void* vdata, int length);
   uint16_t calculateTCPChecksum(std::shared_ptr<TestbedPacket> pkt, int hdrPos,
     uint8_t protocol, struct ip *ipptr);
-  std::vector<std::string> getBaseIPs(const AddrType &addrType);
+  std::vector<std::string> getBaseIPs(const std::vector<std::string> &prefixes);
   // util.updateAddress(received_packet, ncs.list, it->second, "dst");
   void updateAddress(std::shared_ptr<TestbedPacket> pkt,
     const std::vector<std::string> &headers, const std::string &newAddress,
@@ -264,6 +264,7 @@ class TestbedUtilities {
   void getLoadBalancerPacket(std::shared_ptr<TestbedPacket> lb_packet,
     const std::map<std::string, size_t> &server_sessions,
     const std::string &node_id,
+    const std::vector<std::string> &prefixes,
     const std::string &controller_ip,
     std::shared_ptr<TestbedPacket> received_packet,
     const std::vector<std::string> &headers);

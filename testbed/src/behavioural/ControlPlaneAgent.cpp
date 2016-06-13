@@ -119,7 +119,7 @@ bm::MatchKeyParam to_p4_key(const pfp::cp::MatchKey * k) {
 
 std::shared_ptr<pfp::cp::CommandResult>
 ControlPlaneAgent::process(pfp::cp::InsertCommand * cmd) {
-  cout << "Insert Command at ControlPlaneAgent" << endl;
+  npulog(profile, cout << "Insert Command at ControlPlaneAgent" << endl;)
 
   // Convert all of the match keys
   std::vector<bm::MatchKeyParam> keys;
@@ -144,18 +144,65 @@ ControlPlaneAgent::process(pfp::cp::InsertCommand * cmd) {
         &handle);
   p4->lock.write_unlock();
 
-  return cmd->success_result(handle);
+  if (rc == bm::MatchErrorCode::SUCCESS) {
+    npulog(profile, cout << "Insert successful" << endl;)
+    return cmd->success_result(handle);
+  } else {
+    npulog(profile, cout << "Insert unsuccessful: " << endl;)
+    assert(false);
+  }
 }
 
 std::shared_ptr<pfp::cp::CommandResult>
 ControlPlaneAgent::process(pfp::cp::ModifyCommand *cmd) {
-  cout << "Modify Command at ControlPlaneAgent" << endl;
-  return cmd->success_result();
+  npulog(profile, cout << "Modify Command at ControlPlaneAgent" << endl;)
+
+  // Convert all of the action parameters
+  bm::ActionData action_data;
+  for (const pfp::cp::Bytes & b : cmd->get_action().get_params()) {
+    action_data.push_back_action_data
+      (bm::Data((const char *)b.data(), b.size()));
+  }
+
+  // Insert the entry!
+  bm::entry_handle_t handle;
+  auto p4 = P4::get("npu");
+  p4->lock.write_lock();
+  bm::MatchErrorCode rc = p4->mt_modify_entry(0,
+        cmd->get_table_name(),
+        cmd->get_handle(),
+        cmd->get_action().get_name(),
+        action_data);
+  p4->lock.write_unlock();
+
+  if (rc == bm::MatchErrorCode::SUCCESS) {
+    npulog(profile, cout << "Modify successful" << endl;)
+    return cmd->success_result();
+  } else {
+    npulog(profile, cout << "Modify unsuccessful: " << endl;)
+    assert(false);
+  }
 }
 std::shared_ptr<pfp::cp::CommandResult>
 ControlPlaneAgent::process(pfp::cp::DeleteCommand *cmd) {
-  cout << "Delete Command at ControlPlaneAgent" << endl;
-  return cmd->success_result();
+  npulog(profile, cout << "Delete Command at ControlPlaneAgent" << endl;)
+
+  // Delete the entry!
+  bm::entry_handle_t handle;
+  auto p4 = P4::get("npu");
+  p4->lock.write_lock();
+  bm::MatchErrorCode rc = p4->mt_delete_entry(0,
+        cmd->get_table_name(),
+        cmd->get_handle());
+  p4->lock.write_unlock();
+
+  if (rc == bm::MatchErrorCode::SUCCESS) {
+    npulog(profile, cout << "Delete successful" << endl;)
+    return cmd->success_result();
+  } else {
+    npulog(profile, cout << "Delete unsuccessful: " << endl;)
+    assert(false);
+  }
 }
 
 std::shared_ptr<pfp::cp::CommandResult>

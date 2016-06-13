@@ -34,6 +34,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <tuple>
 #include "../structural/LoadBalancerSIM.h"
 #include "common/TestbedPacket.h"
 #include "common/TestbedUtilities.h"
@@ -50,7 +51,9 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
   void init();
 
  private:
-  typedef std::pair<std::string, size_t> instance_infotype;
+  typedef std::tuple<std::string, size_t, std::string> instance_infotype;
+  // typedef std::tuple<std::string, size_t> forward_nattype;
+
   void LoadBalancer_PortServiceThread();
   void LoadBalancerThread(std::size_t thread_id);
   std::vector<sc_process_handle> ThreadHandles;
@@ -59,6 +62,9 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
 
   void invokeDNS();
   void updateServerSessionsTable();
+  void updateReverseNAT(const std::vector<std::string> &prefixes);
+  void updateForwardNAT(std::string client_ip, std::string public_ip,
+    std::string server_ip);
 
   std::shared_ptr<TestbedPacket> rcvd_testbed_packet;
   // node_id --> instance_id, instance_load
@@ -66,6 +72,10 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
     server_sessions_table;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::string getServerInstanceAddress();
+  // server instance prefixes, public_ip
+  std::map<std::string, std::string> reverse_nat_table;
+  // client_ip, handle
+  std::map<std::string, size_t> forward_nat_table;
   std::ofstream outlog;
 };
 

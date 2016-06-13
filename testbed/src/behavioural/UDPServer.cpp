@@ -76,7 +76,8 @@ void UDPServer::initializeServer() {
   std::shared_ptr<TestbedPacket> lb_packet =
     std::make_shared<TestbedPacket>();
   util.getLoadBalancerPacket(lb_packet, server_sessions,
-    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    GetParameter("URL").get(), ncs.prefixes.prefix_values,
+    GetParameter("dns_load_balancer").get(),
     received_packet, ncs.list);
   // SimulationParameters["dns_load_balancer"].get()
   std::vector<std::string> hdrList;
@@ -298,7 +299,8 @@ std::string UDPServer::serverSessionsManager() {
   serverID = util.getIPAddress(received_packet->getData(),
     ncs.list, "dst");
   // ReceivedPacket serverID: serverID
-  std::vector<std::string> baseIPs = util.getBaseIPs(ncs.prefixes);
+  std::vector<std::string> baseIPs =
+    util.getBaseIPs(ncs.prefixes.prefix_values);
   if (std::find(baseIPs.begin(), baseIPs.end(), serverID) == baseIPs.end()) {
     // The serverID does not belong to any of the base IPs
     if (server_sessions[serverID] == maxSessions - 1) {
@@ -384,7 +386,8 @@ std::string UDPServer::serverSessionsManager() {
     std::make_shared<TestbedPacket>();
   // Number of server sessions: server_sessions.size()
   util.getLoadBalancerPacket(lb_packet, server_sessions,
-    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    GetParameter("URL").get(), ncs.prefixes.prefix_values,
+    GetParameter("dns_load_balancer").get(),
     received_packet, ncs.list);
   // Size of Load Balancer packer: lb_packet->getData().size()
   std::vector<std::string> hdrList;

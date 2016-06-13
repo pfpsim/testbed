@@ -76,7 +76,8 @@ void TCPServer::initializeServer() {
   std::shared_ptr<TestbedPacket> lb_packet =
     std::make_shared<TestbedPacket>();
   util.getLoadBalancerPacket(lb_packet, server_sessions,
-    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    GetParameter("URL").get(), ncs.prefixes.prefix_values,
+    GetParameter("dns_load_balancer").get(),
     received_packet, ncs.list);
   // SimulationParameters["dns_load_balancer"].get()
   std::vector<std::string> hdrList = util.getPacketHeaders(lb_packet);
@@ -251,7 +252,8 @@ std::string TCPServer::serverSessionsManager() {
     // decrementing server_sessions count
     server_sessions[serverID]--;
   }
-  std::vector<std::string> baseIPs = util.getBaseIPs(ncs.prefixes);
+  std::vector<std::string> baseIPs =
+    util.getBaseIPs(ncs.prefixes.prefix_values);
   size_t total_available_sessions = 0;
   if (std::find(baseIPs.begin(), baseIPs.end(), serverID) == baseIPs.end()) {
     // The serverID does not belong to any of the base IPs
@@ -262,17 +264,20 @@ std::string TCPServer::serverSessionsManager() {
       it != server_sessions.end(); ++it) {
         total_available_sessions += maxSessions - it->second;
     }
-    npulog(profile, cout << Yellow << "Available sessions("
-      << total_available_sessions << ")";)
+    std::string outputTemp;
+    outputTemp.append("Available sessions(");
+    outputTemp.append(std::to_string(total_available_sessions));
+    outputTemp.append(")");
     if (total_available_sessions <= 1) {
       std::string newServerID =
         util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
       // Add server instance: newServerID
       server_sessions.insert(std::pair<std::string, size_t>(newServerID, 0));
-      cout << Yellow << " - creating " << newServerID;
+      outputTemp.append(" - creating ");
+      outputTemp.append(newServerID);
       // sendLoadBalancerUpdatePacket();
     }
-    cout << txtrst << endl;
+    npulog(profile, cout << Yellow << outputTemp << txtrst << endl;)
   } else {
     // We do not receive packets here anymore
     assert(!"Packet sent to server base IP");
@@ -296,7 +301,8 @@ void TCPServer::sendLoadBalancerUpdatePacket() {
     std::make_shared<TestbedPacket>();
   // Number of server sessions: server_sessions.size()
   util.getLoadBalancerPacket(lb_packet, server_sessions,
-    GetParameter("URL").get(), GetParameter("dns_load_balancer").get(),
+    GetParameter("URL").get(), ncs.prefixes.prefix_values,
+    GetParameter("dns_load_balancer").get(),
     received_packet, ncs.list);
   // Size of Load Balancer packer: lb_packet->getData().size()
   std::vector<std::string> hdrList;

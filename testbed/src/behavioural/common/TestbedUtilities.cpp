@@ -1082,9 +1082,9 @@ std::string TestbedUtilities::getServerInstanceAddress(const AddrType &addrType,
     return NULL;
 }
 std::vector<std::string> TestbedUtilities::getBaseIPs(
-  const AddrType &addrType) {
+  const std::vector<std::string> &prefixes) {
   std::vector<std::string> baseIPs;
-  for (std::string prefix : addrType.prefix_values) {
+  for (std::string prefix : prefixes) {
     std::vector<std::string> msqips = getIPv4List(prefix, 1, 0);
     baseIPs.push_back(msqips.at(0));
   }
@@ -1330,6 +1330,7 @@ void TestbedUtilities::getLoadBalancerPacket(
   std::shared_ptr<TestbedPacket> lb_packet,
   const std::map<std::string, size_t> &server_sessions,
   const std::string &node_id,
+  const std::vector<std::string> &prefixes,
   const std::string &controller_ip,
   std::shared_ptr<TestbedPacket> received_packet,
   const std::vector<std::string> &headers) {
@@ -1340,6 +1341,19 @@ void TestbedUtilities::getLoadBalancerPacket(
   // The payload for the udp header is the server_sessions manager pairs
   // the format of the payload is:
   // server_node id + number of instances + (instance id + instance load)
+  // ____________________
+  // |    ETHER-II      |
+  // |    IPv4          |
+  // |    UDP           |
+  // |------------------|
+  // |    URL           |
+  // |    prefix_count  |
+  // |   *[prefix       |
+  // |     length]      |
+  // |   instance_count |
+  // |   *[instances    |
+  // |     load]        |
+  // --------------------
   struct tcphdr *tcpptr;
   if (received_packet == NULL) {
     // This is generally the case when the server is initializing...
@@ -1485,9 +1499,41 @@ void TestbedUtilities::getLoadBalancerPacket(
   }
   lb_packet->setData().insert(lb_packet->setData().end(),
     parsed_node_id.begin(), parsed_node_id.end());
+
+  // Adding the prefix count
+  uint32_t prefix_count = htonl((uint32_t)prefixes.size());
+  uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&prefix_count));
+  lb_packet->setData().insert(lb_packet->setData().end(), data,
+    data + sizeof(uint32_t));
+  // Adding prefixes (prefix ip, prefix length[32])
+  for (std::string tpre : prefixes) {
+    std::stringstream prefixipss(tpre);
+    std::string mask, prefix;
+    std::getline(prefixipss, mask, '/');
+    std::getline(prefixipss, prefix, '/');
+    struct in_addr tempip;
+    if (inet_aton(mask.c_str(), &tempip) == 0) {
+      std::cerr << "We got an invalid IP address - 07! instance_id: "
+        << mask << std::endl;
+      assert(false);
+    }
+    data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
+    lb_packet->setData().insert(lb_packet->setData().end(), data,
+      data + sizeof(struct in_addr));
+    uint32_t mask_int;
+    try {
+      mask_int = htonl((uint32_t)stol(prefix));
+    } catch (std::exception &e) {
+      assert(!"Incorrect mask received");
+    }
+    data = static_cast<uint8_t*>(static_cast<void*>(&mask_int));
+    lb_packet->setData().insert(lb_packet->setData().end(), data,
+      data + sizeof(uint32_t));
+  }
+
   // Adding instance counts
   uint32_t instance_count = htonl((uint32_t)server_sessions.size());
-  uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
+  data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
   lb_packet->setData().insert(lb_packet->setData().end(), data,
     data + sizeof(uint32_t));
   // Adding instances and load
