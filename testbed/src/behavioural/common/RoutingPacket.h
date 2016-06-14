@@ -112,6 +112,14 @@ class RoutingPacket : public AbstractRoutingPacket {
       return "RoutingPacket";
     }
 
+    std::string payload_data_type() const {
+      if (payload) {
+        return payload->data_type();
+      } else {
+        return "Invalid payload datatype";
+      }
+    }
+
     bool debuggable() const override{
       return payload->debuggable();
     }

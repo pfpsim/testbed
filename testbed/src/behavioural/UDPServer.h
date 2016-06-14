@@ -55,6 +55,7 @@ class UDPServer: public UDPServerSIM {
   std::vector<sc_process_handle> ThreadHandles;
 
   void initializeServer();
+  void sendLoadBalancerUpdatePacket();
 
   // Administrative methods
   void populateLocalMap();
@@ -78,6 +79,7 @@ class UDPServer: public UDPServerSIM {
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::map<std::string, struct ConnectionDetails> client_instances;
   std::map<std::string, size_t> server_sessions;
+  std::ofstream outlog;
 };
 
 #endif  // BEHAVIOURAL_UDPSERVER_H_

@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile) {  //  NOLINT
+UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"ClientConnections.csv") {  //  NOLINT
   std::istringstream cf(configfile);
   TestbedUtilities util;
   populateLocalMap();
@@ -45,6 +45,7 @@ UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     full_name.append("_client.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
+  outlog << "LogicalTime,Client,Server" << endl;
   addClientInstances();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -129,12 +130,12 @@ void UDPClient::activateClientInstance_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    // Configuration specifies zero live instances!"
+    // Configuration specifies zero live instances!
 
     return;
   }
   if (ncs.end_time.to_seconds() == 0) {
-    // Configuration specifies zero life time"
+    // Configuration specifies zero life time
 
     return;
   }
@@ -149,9 +150,9 @@ void UDPClient::activateClientInstance_thread() {
   while (true) {
     // Should we continue the packet generation?
     if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
-      // cout << "Simulation done for specified time! No more "
-      // "client instances will be activated! Waiting for exisiting processing "
-      // "to end."
+      // Simulation done for specified time! No more
+      // client instances will be activated! Waiting for exisiting processing
+      // to end.
       return;
     }
     // size_t activeClients = 0;
@@ -172,12 +173,12 @@ void UDPClient::activateClientInstance_thread() {
             ncs.delay.distribution.param2);
         }
         sc_time waittime = ncs.delay.delay_values.at(it->second.delayIndex);
-        // Adding client instance with idle delay of waittime
+        // Adding client instance with idle delay of: waittime
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
         it->second.file_pending = 0;
         it->second.active = true;
-        // Activating: " << it->first
+        // Activating: it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
         acquireServerInstance(it->first);
@@ -189,10 +190,10 @@ void UDPClient::activateClientInstance_thread() {
     // Wait for a client instance to be activated
     // A client instance will be activated if *timed out*
     // or after its UDP file transfer is done
-    // We activated the specified number of client "
-    // instances. Waiting for next activation request!
-    wait(activate_client_instance_event);
-    // activate_client_instance_event notified.
+    // We activated the specified number of client instances.
+    // Waiting for next activation request!
+    wait(reactivate_client_instance_event);
+    // reactivate_client_instance_event notified.
   }
 }
 void UDPClient::scheduler_thread() {
@@ -217,11 +218,11 @@ void UDPClient::scheduler_thread() {
     assert(false);
   }
   if (maxInstances == 0) {
-    // Configuration specifies zero live instances!"
+    // Configuration specifies zero live instances!
 
     return;
   } else if (ncs.end_time.to_seconds() == 0) {
-    // Configuration specifies zero life"
+    // Configuration specifies zero life
     return;
   }
   double rtime = 1;
@@ -239,8 +240,10 @@ void UDPClient::scheduler_thread() {
       if (it->second.connection_state == idle) {
         if (it->second.wakeup <= sc_time_stamp()) {
           it->second.active = false;
+          it->second.connection_state = serverQuery;
           // Re-activating client instance for the finished file. Wakeup!
-          activate_client_instance_event.notify();
+          // cout << "wake up client" << endl;
+          reactivate_client_instance_event.notify();
           // Allow the client thread to be instantiated immediately by yielding
           wait(SC_ZERO_TIME);
           clWakeup = true;
@@ -276,15 +279,16 @@ void UDPClient::scheduler_thread() {
            }
          }
         // Activating client instance for the finished file.
-        activate_client_instance_event.notify();
+        // npulog(profile, cout << "client idle time over" << endl;)
+
+        reactivate_client_instance_event.notify();
         wait(SC_ZERO_TIME);
         rtime = 1;
        } else {
          // wait for resolution time
          wait(rtime, SC_NS);
          rtime = rtime*2;
-         // udp client is uncontrolled!"
-         // rtime
+         // udp client is uncontrolled!
        }
     }
   }
@@ -376,8 +380,12 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
     clientID = util.getIPAddress(received_packet->getData(),
       hdrList, "dst");
-    // Client received DNS response. Client clientID is assigned
-    // with server serverID
+    // Client received DNS response.
+    npulog(profile, cout << Red << clientID << " is assigned with " << serverID
+      << txtrst << endl;)
+    outlog << sc_time_stamp().to_default_time_units() << ","
+      << clientID << ","
+      << serverID << endl;  // NOLINT
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;

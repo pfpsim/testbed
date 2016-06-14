@@ -77,7 +77,8 @@ void LoadBalancer::LoadBalancerThread(std::size_t thread_id) {
 std::string LoadBalancer::getServerInstanceAddress() {
   TestbedUtilities util;
 
-  std::vector<std::string> headers = util.getPacketHeaders(rcvd_testbed_packet);
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
 
   std::vector<std::uint8_t> question;
   question.insert(question.begin(),  (rcvd_testbed_packet->setData().begin() +
@@ -116,7 +117,8 @@ void LoadBalancer::outgoingPackets_thread() {
 }
 void LoadBalancer::invokeDNS() {
   TestbedUtilities util;
-  std::vector<std::string> headers = util.getPacketHeaders(rcvd_testbed_packet);
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
   std::string serverURL = getServerInstanceAddress();
   std::pair<
     std::multimap<std::string, instance_infotype >::iterator,
@@ -195,7 +197,8 @@ void LoadBalancer::invokeDNS() {
 }
 void LoadBalancer::updateServerSessionsTable() {
   TestbedUtilities util;
-  std::vector<std::string> headers = util.getPacketHeaders(rcvd_testbed_packet);
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
   size_t urlLen = 0;
   uint32_t payloadPos = util.getHeaderLength(headers);
   std::vector<uint8_t> temp_vector;
@@ -339,9 +342,6 @@ void LoadBalancer::updateForwardNAT(std::string client_ip,
   // This is a new client DNS. Lets add it to both Control plane
   // and update the tables in forwarding plane as well
   // Updating match-action tables in the forwarding plane
-  cout << "client_ip " << client_ip << endl
-    << "public_ip " << public_ip << endl
-    << "server_ip " << server_ip << endl;
 
   std::string insert_cmd ="insert_entry forward_nat ";
   insert_cmd.append(client_ip);

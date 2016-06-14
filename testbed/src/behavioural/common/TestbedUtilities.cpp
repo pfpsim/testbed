@@ -208,12 +208,12 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           struct ether_header eth_f;
           if (ncs.list.size() >= 2 &&
               ncs.list[nhdr + 1].compare("ipv4_t") == 0) {
-            eth_f.ether_type = ntohs(2048);
+            eth_f.ether_type = htons(2048);
           } else if (ncs.list.size() >= 2 &&
               ncs.list[nhdr + 1].compare("ipv6_t") == 0) {
             eth_f.ether_type = 0x86DD;
           } else {
-            eth_f.ether_type = ntohs(0);
+            eth_f.ether_type = htons(0);
           }
           // FOR NOW LEFT DEST MAC AND SOURCE MAC AS GARBAGE
           uint8_t *data =
@@ -1355,18 +1355,19 @@ void TestbedUtilities::getLoadBalancerPacket(
   // |     load]        |
   // --------------------
   struct tcphdr *tcpptr;
-  if (received_packet == NULL) {
+  lb_packet->setData().clear();
+  // if (received_packet == NULL) {
     // This is generally the case when the server is initializing...
     // We create a ethernet-ipv4-udp packet with the load balancer info as
     // payload
     struct ether_header eth_f;
     // ("ipv4_t") == 0) {
-    eth_f.ether_type = ntohs(2048);
+    eth_f.ether_type = htons(static_cast<uint16_t>(2048));
     // ("ipv6_t") == 0) {
     //  eth_f.ether_type = 0x86DD;
     // FOR NOW LEFT DEST MAC AND SOURCE MAC AS GARBAGE
     uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&eth_f));
-    lb_packet->setData().insert(lb_packet->setData().end(), data,
+    lb_packet->setData().insert(lb_packet->setData().begin(), data,
         data + sizeof(struct ether_header));
     // (ncs.list[nhdr].compare("ipv4_t") == 0) {
     struct ip ip_f;
@@ -1423,7 +1424,7 @@ void TestbedUtilities::getLoadBalancerPacket(
     data =  static_cast<uint8_t*>(static_cast<void*>(&udp_f));
     lb_packet->setData().insert(lb_packet->setData().end(), data,
       data + sizeof(struct udphdr));
-  } else {
+  /*} else {
     std::shared_ptr<TestbedPacket> response_packet =
       std::make_shared<TestbedPacket>();
     getResponseHeader(received_packet, response_packet, 0, headers);
@@ -1479,7 +1480,7 @@ void TestbedUtilities::getLoadBalancerPacket(
         // resPacket->setData().end());
       }
     }
-  }
+  }*/
   // Time for the payload
   // Adding node id
   // We add it as we add it for DNS question :)
@@ -1502,7 +1503,8 @@ void TestbedUtilities::getLoadBalancerPacket(
 
   // Adding the prefix count
   uint32_t prefix_count = htonl((uint32_t)prefixes.size());
-  uint8_t *data = static_cast<uint8_t*>(static_cast<void*>(&prefix_count));
+  // uint8_t *
+    data = static_cast<uint8_t*>(static_cast<void*>(&prefix_count));
   lb_packet->setData().insert(lb_packet->setData().end(), data,
     data + sizeof(uint32_t));
   // Adding prefixes (prefix ip, prefix length[32])
@@ -1555,13 +1557,12 @@ void TestbedUtilities::getLoadBalancerPacket(
   }
 }
 std::vector<std::string> TestbedUtilities::getPacketHeaders(
-  std::shared_ptr<TestbedPacket> pkt) {
+  const std::vector<uint8_t> &pkt) {
   size_t headerpos = 0;
   std::vector<std::string> headers;
-  const struct ether_header *etherptr;
+  struct ether_header *etherptr;
   // We always assume first header to be ethernet header
-  etherptr = static_cast<const struct ether_header*>(static_cast<const void*>(
-    pkt->getData().data()));
+  etherptr = (struct ether_header*)(pkt.data());
   headers.push_back("ethernet_t");
   headerpos += sizeof(struct ether_header);
   // if (ncs.list.size() >= 2 &&
@@ -1570,45 +1571,42 @@ std::vector<std::string> TestbedUtilities::getPacketHeaders(
   // } else if (ncs.list.size() >= 2 &&
   //    ncs.list[nhdr + 1].compare("ipv6_t") == 0) {
   //  eth_f.ether_type = 0x86DD;
-  if (etherptr->ether_type == ntohs(2048)) {
-    const struct ip *ipptr = static_cast<const struct ip*>(
-      static_cast<const void*>(pkt->getData().data() +  headerpos));
+  // (uint32_t)ntohs(ethernetptr->ether_type)
+  uint32_t etype = (uint32_t)ntohs(etherptr->ether_type);
+  cout << etype << endl;
+  if (etype == 2048) {
+    struct ip *ipptr = (struct ip*)(pkt.data() +  headerpos);
     headers.push_back("ipv4_t");
     headerpos += sizeof(struct ip);
     uint16_t ip_protocol = (uint16_t)ipptr->ip_p;
     if (ip_protocol == 6) {
-      const struct tcphdr *tcpptr = static_cast<const struct tcphdr*>(
-        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      struct tcphdr *tcpptr = (struct tcphdr*)(pkt.data() +  headerpos);
       headers.push_back("tcp_t");
       if (tcpptr->th_dport == htons(53)) {
         std::cerr << "We do not support DNS over TCP yet!" << endl;
         assert(false);
       }
     } else if (ip_protocol == 17) {
-      const struct udphdr *udpptr = static_cast<const struct udphdr*>(
-        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      struct udphdr *udpptr = (struct udphdr*)(pkt.data() +  headerpos);
       headers.push_back("udp_t");
       if (udpptr->uh_dport == htons(53)) {
         headers.push_back("dns_t");
       }
     }
   } else if (etherptr->ether_type == 0x86DD) {
-    const struct ip6_hdr *ipptr = static_cast<const struct ip6_hdr*>(
-      static_cast<const void*>(pkt->getData().data() +  headerpos));
+    struct ip6_hdr *ipptr = (struct ip6_hdr*)(pkt.data() +  headerpos);
     headers.push_back("ipv6_t");
     headerpos += sizeof(struct ip6_hdr);
     uint16_t ip_protocol = (uint16_t)ipptr->ip6_un1_nxt;
     if (ip_protocol == 6) {
-      const struct tcphdr *tcpptr = static_cast<const struct tcphdr*>(
-        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      struct tcphdr *tcpptr = (struct tcphdr*)(pkt.data() +  headerpos);
       headers.push_back("tcp_t");
       if (tcpptr->th_dport == htons(53)) {
         std::cerr << "We do not support DNS over TCP yet!" << endl;
         assert(false);
       }
     } else if (ip_protocol == 17) {
-      const struct udphdr *udpptr = static_cast<const struct udphdr*>(
-        static_cast<const void*>(pkt->getData().data() +  headerpos));
+      struct udphdr *udpptr = (struct udphdr*)(pkt.data() +  headerpos);
       headers.push_back("udp_t");
       if (udpptr->uh_dport == htons(53)) {
         headers.push_back("dns_t");

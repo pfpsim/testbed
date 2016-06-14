@@ -269,7 +269,8 @@ class TestbedUtilities {
     std::shared_ptr<TestbedPacket> received_packet,
     const std::vector<std::string> &headers);
 
-  std::vector<std::string> getPacketHeaders(std::shared_ptr<TestbedPacket> pkt);
+  std::vector<std::string>
+    getPacketHeaders(const std::vector<uint8_t> &pkt);
 };
 
 #endif  // BEHAVIOURAL_COMMON_TESTBEDUTILITIES_H_

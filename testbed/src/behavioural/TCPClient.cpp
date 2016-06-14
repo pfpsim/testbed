@@ -183,7 +183,6 @@ void TCPClient::activateClientInstance_thread() {
         received_packet = NULL;
         acquireServerInstance(it->first);
         // We activated a client instance. Waiting for it to connect!
-        // cout << "Wait for client to get connected" << endl;
         wait(activate_client_instance_event);
         // establishConnection(it->first);
       }
@@ -193,7 +192,6 @@ void TCPClient::activateClientInstance_thread() {
     // or after its TCP file transfer is done
     // We activated the specified number of client instances.
     // Waiting for next activation request!
-    // cout << "Wait for client to get reactivated" << endl;
     wait(reactivate_client_instance_event);
     // reactivate_client_instance_event notified.
   }

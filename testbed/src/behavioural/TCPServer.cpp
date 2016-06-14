@@ -80,7 +80,8 @@ void TCPServer::initializeServer() {
     GetParameter("dns_load_balancer").get(),
     received_packet, ncs.list);
   // SimulationParameters["dns_load_balancer"].get()
-  std::vector<std::string> hdrList = util.getPacketHeaders(lb_packet);
+  std::vector<std::string> hdrList =
+    util.getPacketHeaders(lb_packet->getData());
   util.finalizePacket(lb_packet, hdrList);
   // Pushing load balancing packet for table update - 01"
 
@@ -125,7 +126,6 @@ void TCPServer::validatePacketSource_thread() {
       if (endTime - stTime >= maxINwait) {
         for (sc_process_handle temp : ThreadHandles) {
           // tcp server killing all its threads
-
           temp.kill();
         }
       }
@@ -405,7 +405,6 @@ void TCPServer::registerFile() {
   std::shared_ptr<TestbedPacket> resPacket = std::make_shared<TestbedPacket>();
   util.getResponseHeader(received_packet, resPacket, payloadLen, ncs.list);
 
-
   // We can multiply the video encoding rate with the duration to get the
   // total video duration
   int32_t fileSize = ncs.fsize.size_values.at(cdet->fileIndex);
@@ -416,7 +415,6 @@ void TCPServer::registerFile() {
 
   util.finalizePacket(resPacket, ncs.list);
   // Server sending packet. File Size: fileSize
-
   outgoing_packets.push(resPacket);
 
   cdet->connection_state = fileProcessing;

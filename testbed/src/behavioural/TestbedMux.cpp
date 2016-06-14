@@ -30,6 +30,7 @@
 
 #include "./TestbedMux.h"
 #include <string>
+#include <vector>
 #include <chrono>
 
 
@@ -62,12 +63,37 @@ void TestbedMux::TestbedMux_PortServiceThread(std::size_t port_num) {
     uid_isolation_groups(0, isolation_groups - 1);
 
   while (true) {
-    std::shared_ptr<TestbedPacket> testbed_packet =
-    std::dynamic_pointer_cast<TestbedPacket>(in[port_num]->get());
+    auto received_packet = in[port_num]->get();
     TestbedUtilities util;
+
     muxLock.lock();
+    std::shared_ptr<TestbedPacket> testbed_packet =
+      std::dynamic_pointer_cast<TestbedPacket>(received_packet);
     packetCount++;
+
+    std::string outputstr;
+    outputstr.append("Mux received packet (");
+    outputstr.append(std::to_string(packetCount));
+    outputstr.append(") from ");
+    outputstr.append(std::to_string(port_num));
+    outputstr.append(" port. ");
+    outputstr.append("Headers are: ");
+    std::vector<std::string> headers =
+      util.getPacketHeaders(testbed_packet->getData());
+
+    for (std::string hdr : headers) {
+      outputstr.append(hdr);
+      outputstr.append(" ");
+    }
+    npulog(profile, cout << Blue << outputstr << txtrst << endl;)
+
+
     pcap_logger->logPacket(testbed_packet->getData(), sc_time_stamp());
+    if (headers.size() == 1) {
+      util.getPacketHeaders(testbed_packet->getData());
+      util.dissectPacket(testbed_packet->getData(), headers);
+      assert(!"Incorrect config");
+    }
 
     testbed_packet->setIngressPort(port_num);
 

@@ -4,37 +4,37 @@ CE TestbedQueue("TestbedQueue.cfg") implements TestbedRdI, TestbedWrI;
 CE ExtQueue("ExtQueue.cfg") implements TestbedRdI, TestbedWrI, QueueRdI, QueueWrI;
 
 PE TCPServer("TCPServer.cfg"){
-	TestbedRdI in;
-	TestbedWrI out;
+  TestbedRdI in;
+  TestbedWrI out;
 };
 
 PE TCPClient("TCPClient.cfg"){
-	TestbedRdI in;
-	TestbedWrI out;
+  TestbedRdI in;
+  TestbedWrI out;
 };
 
 PE UDPServer("UDPServer.cfg"){
-	TestbedRdI in;
-	TestbedWrI out;
+  TestbedRdI in;
+  TestbedWrI out;
 };
 
 PE UDPClient("UDPClient.cfg"){
-	TestbedRdI in;
-	TestbedWrI out;
+  TestbedRdI in;
+  TestbedWrI out;
 };
 
 PE TestbedMux {
-	TestbedRdI in[];
-	TestbedWrI out;
-	TestbedWrI bypass;
-	TestbedRdI loop_in;
+  TestbedRdI in[];
+  TestbedWrI out;
+  TestbedWrI bypass;
+  TestbedRdI loop_in;
 };
 
 PE TestbedDemux {
-	TestbedRdI in;
-	TestbedWrI out[];
-	TestbedRdI bypass;
-	TestbedWrI loop_out;
+  TestbedRdI in;
+  TestbedWrI out[];
+  TestbedRdI bypass;
+  TestbedWrI loop_out;
 };
 
 PE Testbed("Testbed.cfg") {
@@ -43,17 +43,23 @@ PE Testbed("Testbed.cfg") {
   TestbedRdI in_cp;
   TestbedWrI out_cp;
 
-  TCPServer server_tcp_test("server_tcp_test.cfg");  // server_ytl("server_ytl.cfg"),server_yts("server_yts.cfg"),
-  TCPClient client_tcp_test("client_tcp_test.cfg");  // client_ytl("client_ytl.cfg"),client_yts("client_yts.cfg"),
-  // UDPServer server_voip("server_voip.cfg"), server_udp_test("server_udp_test.cfg");
-  // UDPClient client_voip("client_voip.cfg"), client_udp_test("client_udp_test.cfg");
+  // TCPServer server_ytl("server_ytl.cfg");
+  // TCPClient client_ytl("client_ytl.cfg");
+  // TCPServer server_yts("server_yts.cfg");
+  // TCPClient client_yts("client_yts.cfg");
+  TCPServer server_tcp_test("server_tcp_test.cfg");
+  TCPClient client_tcp_test("client_tcp_test.cfg");
+  // UDPServer server_voip("server_voip.cfg");
+  // UDPClient client_voip("client_voip.cfg");
+  UDPServer server_udp_test("server_udp_test.cfg");
+  UDPClient client_udp_test("client_udp_test.cfg");
 
   TestbedMux mux;
   TestbedDemux demux;
 
   TestbedQueue mux_in[11];
   TestbedQueue demux_out[11];
-	TestbedQueue loop_q;
+  TestbedQueue loop_q;
 
   TestbedQueue mux_out;
   TestbedQueue demux_in;
@@ -62,32 +68,31 @@ PE Testbed("Testbed.cfg") {
   bind mux.bypass {bypass};
   bind demux.bypass {bypass};
 
-	bind mux.loop_in {loop_q};
-	bind demux.loop_out {loop_q};
-/*
-  bind client_ytl.out {mux_in[0]};
-  bind client_ytl.in {demux_out[0]};
-  bind server_ytl.out {mux_in[1]};
-  bind server_ytl.in {demux_out[1]};
-  bind client_yts.out {mux_in[2]};
-  bind client_yts.in {demux_out[2]};
-  bind server_yts.out {mux_in[3]};
-  bind server_yts.in {demux_out[3]};
-  bind client_voip.out {mux_in[4]};
-  bind client_voip.in {demux_out[4]};
-  bind server_voip.out {mux_in[5]};
-  bind server_voip.in {demux_out[5]};
-*/
+  bind mux.loop_in {loop_q};
+  bind demux.loop_out {loop_q};
+
+  // bind client_ytl.out {mux_in[0]};
+  // bind client_ytl.in {demux_out[0]};
+  // bind server_ytl.out {mux_in[1]};
+  // bind server_ytl.in {demux_out[1]};
+  // bind client_yts.out {mux_in[2]};
+  // bind client_yts.in {demux_out[2]};
+  // bind server_yts.out {mux_in[3]};
+  // bind server_yts.in {demux_out[3]};
+  // bind client_voip.out {mux_in[4]};
+  // bind client_voip.in {demux_out[4]};
+  // bind server_voip.out {mux_in[5]};
+  // bind server_voip.in {demux_out[5]};
+
   bind client_tcp_test.out {mux_in[6]};
   bind client_tcp_test.in {demux_out[6]};
   bind server_tcp_test.out {mux_in[7]};
   bind server_tcp_test.in {demux_out[7]};
-/*
+
   bind client_udp_test.out {mux_in[8]};
   bind client_udp_test.in {demux_out[8]};
   bind server_udp_test.out {mux_in[9]};
   bind server_udp_test.in {demux_out[9]};
-*/
 
   bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], mux_in[4], mux_in[5], mux_in[6], mux_in[7], mux_in[8], mux_in[9], in_cp};
 

@@ -123,7 +123,17 @@ void MemoryController::MemoryControllerThread(std::size_t thread_id) {
               != std::string::npos) {
           // 3. Pick data from memory
           if (memory_.find(pdpkt->id()) == memory_.end()) {
-            npu_error("CDU dropped because of memory: "+memname_+" pkt id: "+std::to_string(pdpkt->id())+" Command: "+received_pd->command);  // NOLINT(whitespace/line_length)
+
+//====================================================================
+mtx_memory_misses_.lock();
+memory_pd_missed_payloads.emplace(pdpkt->id(), pdpkt);
+requestermap.emplace(pdpkt->id(),Requester);
+std::cerr << "Havent received payload for" << pdpkt->id() << " from" << received_pd->source<<std::endl;
+mtx_memory_misses_.unlock();
+//=====================================================================
+
+
+            //npu_error("CDU dropped because of memory: "+memname_+" pkt id: "+std::to_string(pdpkt->id())+" Command: "+received_pd->command+" from"+received_pd->source);  // NOLINT(whitespace/line_length)
           } else {
             auto picked = memory_.at(pdpkt->id());
             mtx_memory_.lock();
@@ -144,6 +154,9 @@ void MemoryController::MemoryControllerThread(std::size_t thread_id) {
 
             auto to_send = make_routing_packet
                            (PayloadFrom, PayloadTo, picked);
+            cout << "MemoryController: picking payload for: "
+             << pdpkt->id() << " and sending to "
+             << PayloadTo << endl;
             ocn_wr_if->put(to_send);
           }
         } else {
@@ -217,11 +230,45 @@ void MemoryController::MemoryControllerThread(std::size_t thread_id) {
       // source ~ Splitter // store incoming payload in memory
       if (auto received_pd = try_unbox_routing_packet<Packet>(received_tr)) {
         auto received_p = received_pd->payload;
-      // 2. Write data into memory; index by packet id
-      mtx_memory_.lock();
-      memory_.emplace(received_p->id(), received_p);
-      mtx_memory_.unlock();
-      tlm_write_cumulative(received_p->payload_paddr, received_p->data());
+        cout << "Searching for:"<<received_p->id()<<endl;
+        if (memory_pd_missed_payloads.find(received_p->id()) == memory_pd_missed_payloads.end()) {
+          cout << "-------- Already have request"<<endl;
+          // Already got a request for this
+          // 4. Return data to core_
+          std::string PayloadFrom = setsourcetome_;
+          // Figure out who to send it to based on on/off chip
+          std::string PayloadTo = "INVALID-"+setsourcetome_;
+
+          mtx_memory_misses_.lock();
+          memory_pd_missed_payloads.erase(received_p->id());
+          std::string Requester = requestermap.at(received_p->id());
+          requestermap.erase(received_p->id());
+          mtx_memory_misses_.unlock();
+
+          // set to core if ed
+          if (setsourcetome_.find("ed") != std::string::npos) {
+            PayloadTo = ExtractCorefromCluster(Requester);
+          } else {
+            PayloadTo = Requester;
+          }
+
+          std::cerr << "Already have request for payload for" << received_p->id() << " from" << Requester<<std::endl;
+
+          auto to_send = make_routing_packet
+                         (PayloadFrom, PayloadTo, received_p);
+          ocn_wr_if->put(to_send);
+
+        } else {
+          // 2. Write data into memory; index by packet id
+          mtx_memory_.lock();
+          memory_.emplace(received_p->id(), received_p);
+          cout << "MemoryController: stored payload for: "
+            << received_p->id() << endl;
+          mtx_memory_.unlock();
+          tlm_write_cumulative(received_p->payload_paddr, received_p->data());
+        }
+
+
       } else {
       npu_error("Splitter Cast Error in "+setsourcetome_)
       }

@@ -89,6 +89,8 @@ void Scheduler::SchedulerThread(std::size_t thread_id) {
           module_name(),
           Request->GetMessage().SendJobto,
           Job));
+         cout << "Schedular sent PD pid"<<Job->id()<<" to "<<Request->GetMessage().SendJobto<<" @"<<sc_time_stamp()<<endl;
+
       }
     } else {
       wait(GotaJobRequest | GotaJob);
