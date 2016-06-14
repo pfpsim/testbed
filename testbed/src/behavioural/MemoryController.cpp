@@ -231,7 +231,7 @@ mtx_memory_misses_.unlock();
       if (auto received_pd = try_unbox_routing_packet<Packet>(received_tr)) {
         auto received_p = received_pd->payload;
         cout << "Searching for:"<<received_p->id()<<endl;
-        if (memory_pd_missed_payloads.find(received_p->id()) == memory_pd_missed_payloads.end()) {
+        if (memory_pd_missed_payloads.find(received_p->id()) != memory_pd_missed_payloads.end()) {
           cout << "-------- Already have request"<<endl;
           // Already got a request for this
           // 4. Return data to core_
