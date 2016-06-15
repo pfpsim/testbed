@@ -134,7 +134,7 @@ void UDPClient::activateClientInstance_thread() {
 
     return;
   }
-  if (ncs.end_time.to_seconds() == 0) {
+  if (ncs.end_time.to_double() == 0.0) {
     // Configuration specifies zero life time
 
     return;
@@ -149,7 +149,7 @@ void UDPClient::activateClientInstance_thread() {
   TestbedUtilities util;
   while (true) {
     // Should we continue the packet generation?
-    if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
+    if (ncs.end_time.to_double() == 0.0 || ncs.end_time <= sc_time_stamp()) {
       // Simulation done for specified time! No more
       // client instances will be activated! Waiting for exisiting processing
       // to end.
@@ -221,15 +221,22 @@ void UDPClient::scheduler_thread() {
     // Configuration specifies zero live instances!
 
     return;
-  } else if (ncs.end_time.to_seconds() == 0) {
+  } else if (ncs.end_time.to_double() == 0.0) {
     // Configuration specifies zero life
     return;
   }
   double rtime = 1;
   while (true) {
-    if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
+    if (ncs.end_time.to_double() == 0.0) {
       // Simulation done for specified time! All files end!
+      // Scheduler ends because of zero time
       return;
+    }
+    if (ncs.end_time <= sc_time_stamp()) {
+        // Simulation done for specified time! All files end!
+        // Scheduler ends because of specified time exceeded
+
+        return;
     }
     int idleInstances = 0;
     bool clWakeup = false;
@@ -259,8 +266,6 @@ void UDPClient::scheduler_thread() {
           minTime = it->second.idle_pending;
           minTimeCID = it->first;
         }
-      } else {
-        break;
       }
     }
     if (!clWakeup) {
@@ -287,8 +292,8 @@ void UDPClient::scheduler_thread() {
        } else {
          // wait for resolution time
          wait(rtime, SC_NS);
-         rtime = rtime*2;
-         // udp client is uncontrolled!
+         // rtime = rtime*2;
+         // tcp client is uncontrolled!
        }
     }
   }
@@ -375,6 +380,7 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
       GetParameter("se_addr").get());
     util.finalizePacket(resPacket, hdrList);
+    // Client clientID sends DNS request
     outgoing_packets.push(resPacket);
   } else {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);

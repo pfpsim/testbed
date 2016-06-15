@@ -114,8 +114,6 @@ void Parser::ParserThread(std::size_t thread_id) {
         // 4.2. Send it to Scheduler
         ocn_wr_if->put(make_routing_packet
                       (module_name_, "scheduler", received_pd));
-        cout << "Parser sent PD pid"<<received_pd->id()<<" to Schedular "<<"@"<<sc_time_stamp()<<endl;
-
         increment_counter("PCL_PKT_TO_SCHEDULER_IG" + std::to_string
                               (received_pd->isolation_group()) + "_EVENT");
       }

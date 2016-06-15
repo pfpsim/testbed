@@ -134,7 +134,7 @@ void TCPClient::activateClientInstance_thread() {
 
     return;
   }
-  if (ncs.end_time.to_seconds() == 0) {
+  if (ncs.end_time.to_double() == 0.0) {
     // Configuration specifies zero life time
 
     return;
@@ -149,7 +149,7 @@ void TCPClient::activateClientInstance_thread() {
   TestbedUtilities util;
   while (true) {
     // Should we continue the packet generation?
-    if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
+    if (ncs.end_time.to_double() == 0.0 || ncs.end_time <= sc_time_stamp()) {
       // Simulation done for specified time! No more
       // client instances will be activated! Waiting for exisiting processing
       // to end.
@@ -221,15 +221,22 @@ void TCPClient::scheduler_thread() {
     // Configuration specifies zero live instances!
 
     return;
-  } else if (ncs.end_time.to_seconds() == 0) {
+  } else if (ncs.end_time.to_double() == 0.0) {
     // Configuration specifies zero life
     return;
   }
   double rtime = 1;
   while (true) {
-    if (ncs.end_time.to_seconds() != 0 && ncs.end_time <= sc_time_stamp()) {
+    if (ncs.end_time.to_double() == 0.0) {
       // Simulation done for specified time! All files end!
+      // Scheduler ends because of zero time
       return;
+    }
+    if (ncs.end_time <= sc_time_stamp()) {
+        // Simulation done for specified time! All files end!
+        // Scheduler ends because of specified time exceeded
+
+        return;
     }
     int idleInstances = 0;
     bool clWakeup = false;
@@ -259,15 +266,13 @@ void TCPClient::scheduler_thread() {
           minTime = it->second.idle_pending;
           minTimeCID = it->first;
         }
-      } else {
-        break;
       }
     }
     if (!clWakeup) {
       if (idleInstances == client_instances.size() &&
         !client_instances.empty()) {
          // All client instances are idle[idleInstances]!
-         // Going for a wait now for minTime!
+         // Going for a wait now for minTime
          wait(minTime);
          client_instances.find(minTimeCID)->second.active = false;
          // FOR ALL OTHER client instances which are also idle state,
@@ -287,7 +292,7 @@ void TCPClient::scheduler_thread() {
        } else {
          // wait for resolution time
          wait(rtime, SC_NS);
-         rtime = rtime*2;
+         // rtime = rtime*2;
          // tcp client is uncontrolled!
        }
     }
@@ -375,6 +380,7 @@ void TCPClient::acquireServerInstance(std::string clientID) {
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
       GetParameter("se_addr").get());
     util.finalizePacket(resPacket, hdrList);
+    // Client clientID sends DNS request
     outgoing_packets.push(resPacket);
   } else {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
@@ -525,4 +531,5 @@ void TCPClient::teardownConnection() {
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = idle;
   cdet->wakeup = cdet->idle_pending + sc_time_stamp();
+  // Client clientID will wake up at cdet->wakeup
 }

@@ -373,9 +373,9 @@ void LoadBalancer::updateForwardNAT(std::string client_ip,
   std::string mod_cmd = "modify_entry ipv4_lpm ";
   mod_cmd.append(std::to_string(ir->handle));
   mod_cmd.append(" set_nhop 14.1.6.3 12");
-  cout << mod_cmd << endl;
+  // cout << mod_cmd << endl;
   cmd = parser.parse_line(mod_cmd);
-  cout << "Parsed" << endl;
+  // cout << "Parsed" << endl;
   handle = lbs->send_command(cmd);
   std::shared_ptr<pfp::cp::ModifyResult> mr =
     std::dynamic_pointer_cast<pfp::cp::ModifyResult>(handle);

@@ -78,7 +78,8 @@ class MemoryController: public MemoryControllerSIM {
   sc_time WR_LATENCY;
 
   sc_mutex mtx_memory_misses_;
-  std::map<std::size_t, std::shared_ptr<PacketDescriptor>> memory_pd_missed_payloads;
+  std::map<std::size_t, std::shared_ptr<PacketDescriptor>>
+    memory_pd_missed_payloads;
   std::map<std::size_t, std::string> requestermap;
 };
 

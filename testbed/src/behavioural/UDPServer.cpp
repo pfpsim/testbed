@@ -378,13 +378,7 @@ void UDPServer::sendLoadBalancerUpdatePacket() {
     received_packet, ncs.list);
   struct ether_header *ethptr =
     (struct ether_header*)(lb_packet->getData().data());
-  cout << htons(ethptr->ether_type) << endl;
-  npulog(profile, cout << Yellow << " lb_packet: hdrs:  "
-    << "lb " << util.getPacketHeaders(lb_packet->getData()).size()
-    << " vs. "
-    << "rcvd "
-    << util.getPacketHeaders(received_packet->getData()).size() << endl;)
-
+  // cout << htons(ethptr->ether_type) << endl;
   // Size of Load Balancer packer: lb_packet->getData().size()
   std::vector<std::string> hdrList;
   hdrList.push_back("ethernet_t");

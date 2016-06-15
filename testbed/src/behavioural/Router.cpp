@@ -34,7 +34,7 @@
 #include "NPU.h"
 #include "common/RoutingPacket.h"
 
-#define RouterLogging
+// #define RouterLogging
 
 Router::Router(sc_module_name nm , int ocn_rd_ifPortSize, int ocn_wr_ifPortSize, pfp::core::PFPObject* parent, std::string configfile):RouterSIM(nm , ocn_rd_ifPortSize, ocn_wr_ifPortSize, parent, configfile) {  // NOLINT(whitespace/line_length)
   /*sc_spawn threads*/
@@ -177,8 +177,7 @@ void Router::LogPacket
     (std::ofstream& outputto, std::shared_ptr<AbstractRoutingPacket> packet) {
   if (auto rp = std::dynamic_pointer_cast<RoutingPacket<Packet>>(packet)) {
   outputto<<sc_time_stamp().to_default_time_units()<<","<<rp->payload_data_type()<<" @: ,"<<rp->id()<<","<<rp->source<<","<<rp->destination<<endl;  // NOLINT
-  }
-  else {
+  } else {
   outputto<<sc_time_stamp().to_default_time_units()<<","<<"Upcast failed"<<" @: ,"<<","<<packet->source<<","<<packet->destination<<endl;  // NOLINT
   }
   return;

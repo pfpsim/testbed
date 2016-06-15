@@ -29,7 +29,7 @@
  */
 
 #include "./Cluster.h"
-#include <string> 
+#include <string>
 
 Cluster::Cluster(sc_module_name nm, pfp::core::PFPObject* parent, std::string configfile):ClusterSIM(nm, parent, configfile) {  // NOLINT(whitespace/line_length)
     /*sc_spawn threads*/

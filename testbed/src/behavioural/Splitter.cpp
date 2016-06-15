@@ -151,13 +151,10 @@ void Splitter::SplitterThread(std::size_t thread_id) {
                            received_packet->target_mem_dest,  // Target Memory
                            received_packet);              // The Packet itself
         ocn_wr_if->put(sendtomemory);
-        cout << "Splitter sent payload of pid"<<received_packet->id()<<" to"<<received_packet->target_mem_dest<<"@"<<sc_time_stamp()<<endl;
         wait(1, SC_NS);
         // 4. Write PacketDescriptor to Parser
         auto sendtoparser = make_routing_packet(module_name(), "parser", pd);
         ocn_wr_if->put(sendtoparser);
-        cout << "Splitter sent PD pid"<<received_packet->id()<<" to Parser "<<"@"<<sc_time_stamp()<<endl;
-
       }
     } else {
       auto receivedpkt = ocn_rd_if->get();

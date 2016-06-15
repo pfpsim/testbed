@@ -1573,7 +1573,7 @@ std::vector<std::string> TestbedUtilities::getPacketHeaders(
   //  eth_f.ether_type = 0x86DD;
   // (uint32_t)ntohs(ethernetptr->ether_type)
   uint32_t etype = (uint32_t)ntohs(etherptr->ether_type);
-  cout << etype << endl;
+  // cout << etype << endl;
   if (etype == 2048) {
     struct ip *ipptr = (struct ip*)(pkt.data() +  headerpos);
     headers.push_back("ipv4_t");
