@@ -292,8 +292,8 @@ void UDPClient::scheduler_thread() {
        } else {
          // wait for resolution time
          wait(rtime, SC_NS);
-         // rtime = rtime*2;
-         // tcp client is uncontrolled!
+         rtime = rtime*2;
+         // udp client is uncontrolled!
        }
     }
   }

@@ -64,7 +64,11 @@ void LoadBalancer::LoadBalancer_PortServiceThread() {
       uint16_t dport = ntohs(udpptr->uh_dport);
       // DNS Requests are sent to port 53 or a table update request
       if (dport == 53) {
-        invokeDNS();
+        // based on config invoke one of the following:
+        // 1. static
+        // 2. round robin
+        // 3. shortest queue
+        invokeDNS_rr();
       } else {
         updateServerSessionsTable();
       }
@@ -115,7 +119,100 @@ void LoadBalancer::outgoingPackets_thread() {
     }
   }
 }
-void LoadBalancer::invokeDNS() {
+void LoadBalancer::invokeDNS_static() {
+  // implement static server allocation for the client requests
+}
+void LoadBalancer::invokeDNS_rr() {
+  // implement round-robin server allocation for the client requests
+  // For every request for the server URL, I need to provide the next in line
+  // server instance to the client...
+  // Hence, we need to maintain a list of which server was last assigned to
+  // the client for a particular URL
+  TestbedUtilities util;
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
+  std::string serverURL = getServerInstanceAddress();
+  std::pair<
+    std::multimap<std::string, instance_infotype >::iterator,
+    std::multimap<std::string, instance_infotype >::iterator>
+    ppp = server_sessions_table.equal_range(serverURL);
+
+  int instance_index = 0;
+  if (server_index.find(serverURL) == server_index.end()) {
+    server_index.insert(std::pair<std::string, int>(serverURL, 0));
+  } else {
+    if (++server_index[serverURL] == server_sessions_table.count(serverURL)) {
+      server_index[serverURL] = 0;
+    }
+    instance_index = server_index[serverURL];
+  }
+
+  std::string server_ip;
+  std::string public_ip;
+
+  std::string tempLogger;
+  tempLogger.append("[");
+  int index = 0;
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    if (index++ == instance_index) {
+      instance_infotype instance_values = (*iter).second;
+      server_ip  = std::get<0>(instance_values);
+      public_ip  = std::get<2>(instance_values);
+    }
+  }
+  std::shared_ptr<TestbedPacket> resPacket =
+    std::make_shared<TestbedPacket>();
+  util.getDnsPacket(rcvd_testbed_packet, resPacket, 1, headers, public_ip);
+  util.finalizePacket(resPacket, headers);
+  outgoing_packets.push(resPacket);
+
+  std::string client_ip = util.getIPAddress(rcvd_testbed_packet->getData(),
+    headers, "src");
+  // Currently we are not putting clients into prefixes
+  client_ip.append("/32");
+
+  npulog(profile, cout << public_ip << " returned to " << client_ip
+    << ". Server instance " << server_ip << endl; )
+  updateForwardNAT(client_ip, public_ip, server_ip);
+  // Update the server_sessions_table instance value
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    instance_infotype &instance_values = (*iter).second;
+    if (server_ip.compare(std::get<0>(instance_values)) == 0) {
+      std::get<1>(instance_values)++;
+      break;
+    }
+  }
+  std::string output = "DNS: ";
+  output.append(std::to_string(server_sessions_table.count(serverURL)));
+  output.append(" instances for ");
+  output.append(serverURL);
+  output.append("[");
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    output.append(std::get<0>(iter->second));
+    output.append("(");
+    output.append(std::to_string(std::get<1>(iter->second)));
+    output.append("); ");
+    tempLogger.append(std::get<0>(iter->second));
+    tempLogger.append("(");
+    tempLogger.append(std::to_string(std::get<1>(iter->second)));
+    tempLogger.append("); ");
+  }
+  tempLogger.append("]");
+  outlog << sc_time_stamp().to_default_time_units() << ","
+    << util.getIPAddress(rcvd_testbed_packet->getData(), headers, "src")
+    << "," << server_ip << ","
+    // << serverURL << ","
+    << tempLogger << endl;
+  output.append("]");
+  npulog(profile, cout << output << endl;)
+}
+void LoadBalancer::invokeDNS_shortestQ() {
   TestbedUtilities util;
   std::vector<std::string> headers =
     util.getPacketHeaders(rcvd_testbed_packet->getData());
