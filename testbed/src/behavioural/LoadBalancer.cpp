@@ -35,7 +35,7 @@
 #include <utility>
 
 LoadBalancer::LoadBalancer(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):LoadBalancerSIM(nm,parent,configfile),outlog(OUTPUTDIR+"DNSrecords.csv") {  // NOLINT
-  outlog << "LogicalTime,Client,ServerAssigned,VirtualInstances(Load)"
+  outlog << "CS-pair,LogicalTime,Client,ServerAssigned,VirtualInstances(Load)"
     << endl;
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -66,9 +66,16 @@ void LoadBalancer::LoadBalancer_PortServiceThread() {
       if (dport == 53) {
         // based on config invoke one of the following:
         // 1. static
-        // 2. round robin
+        // 2. Round Robin
         // 3. shortest queue
-        invokeDNS_rr();
+        std::string policy = SimulationParameters["policy"].get();
+        if (policy.compare("static") == 0) {
+          invokeDNS_static();
+        } else if (policy.compare("round_robin") == 0) {
+          invokeDNS_rr();
+        } else if (policy.compare("shortest_queue") == 0) {
+          invokeDNS_shortestQ();
+        }
       } else {
         updateServerSessionsTable();
       }
@@ -121,9 +128,59 @@ void LoadBalancer::outgoingPackets_thread() {
 }
 void LoadBalancer::invokeDNS_static() {
   // implement static server allocation for the client requests
+  // We check if we have an entry for the client in our list
+  // If yes, we will follow the same
+  // Else, we assign the currently least load server to the client instance
+  // and update the forward nat table
+  TestbedUtilities util;
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
+  std::string client_ip = util.getIPAddress(rcvd_testbed_packet->getData(),
+    headers, "src");
+  client_ip.append("/32");
+  if (static_list.find(client_ip) != static_list.end()) {
+    outlog << "same" << ",";
+    // cout << "invoke static - same client-server" << endl;
+    std::string serverURL = getServerInstanceAddress();
+    std::pair<
+      std::multimap<std::string, instance_infotype >::iterator,
+      std::multimap<std::string, instance_infotype >::iterator>
+      ppp = server_sessions_table.equal_range(serverURL);
+    std::string server_ip = static_list.find(client_ip)->second;
+    std::string public_ip;
+    // The client has been previously assigned to a server
+    // We will use the same server and update the load on the server instance
+    for (std::multimap<std::string,
+      instance_infotype >::iterator iter = ppp.first;
+      iter != ppp.second; ++iter) {
+      instance_infotype &instance_values = (*iter).second;
+      if (server_ip.compare(std::get<0>(instance_values)) == 0) {
+        std::get<1>(instance_values)++;
+        public_ip  = std::get<2>(instance_values);
+        break;
+      }
+    }
+    std::shared_ptr<TestbedPacket> resPacket =
+      std::make_shared<TestbedPacket>();
+    util.getDnsPacket(rcvd_testbed_packet, resPacket, 1, headers, public_ip);
+    util.finalizePacket(resPacket, headers);
+    outgoing_packets.push(resPacket);
+    // Currently we are not putting clients into prefixes
+    client_ip.append("/32");
+    npulog(profile, cout << public_ip << " returned to " << client_ip
+      << ". Server instance " << server_ip << endl; )
+    // static binding, no need to update forward NAT table
+    // updateForwardNAT(client_ip, public_ip, server_ip);
+    logger(serverURL, server_ip);
+  } else {
+    // Find the shortest_queue server instance and allocate it to the client
+    // Can I simple invoke the shortest_queue algorithm here??
+    // cout << "invoke static - different client-server, going for sq" << endl;
+    invokeDNS_shortestQ();
+  }
 }
 void LoadBalancer::invokeDNS_rr() {
-  // implement round-robin server allocation for the client requests
+  // implement Round Robin server allocation for the client requests
   // For every request for the server URL, I need to provide the next in line
   // server instance to the client...
   // Hence, we need to maintain a list of which server was last assigned to
@@ -141,7 +198,8 @@ void LoadBalancer::invokeDNS_rr() {
   if (server_index.find(serverURL) == server_index.end()) {
     server_index.insert(std::pair<std::string, int>(serverURL, 0));
   } else {
-    if (++server_index[serverURL] == server_sessions_table.count(serverURL)) {
+    server_index[serverURL]++;
+    if (server_index[serverURL] == server_sessions_table.count(serverURL)) {
       server_index[serverURL] = 0;
     }
     instance_index = server_index[serverURL];
@@ -150,8 +208,6 @@ void LoadBalancer::invokeDNS_rr() {
   std::string server_ip;
   std::string public_ip;
 
-  std::string tempLogger;
-  tempLogger.append("[");
   int index = 0;
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
@@ -160,6 +216,8 @@ void LoadBalancer::invokeDNS_rr() {
       instance_infotype instance_values = (*iter).second;
       server_ip  = std::get<0>(instance_values);
       public_ip  = std::get<2>(instance_values);
+      // cout << "Index used in Round robin: " << index
+      //  << "(" << server_ip << ")"<< endl;
     }
   }
   std::shared_ptr<TestbedPacket> resPacket =
@@ -172,10 +230,23 @@ void LoadBalancer::invokeDNS_rr() {
     headers, "src");
   // Currently we are not putting clients into prefixes
   client_ip.append("/32");
-
   npulog(profile, cout << public_ip << " returned to " << client_ip
     << ". Server instance " << server_ip << endl; )
-  updateForwardNAT(client_ip, public_ip, server_ip);
+
+  // Check if we already have this client-server connection
+  if (static_list.find(client_ip) != static_list.end() &&
+        server_ip.compare(static_list.find(client_ip)->second)) {
+      // This means we need not update NAT Tables
+      outlog << "same" << ",";
+      // cout << "invoke rr - same client-server" << endl;
+  } else {
+    outlog << "different" << ",";
+    // cout << "invoke rr - different client-server. Updating tables" << endl;
+    static_list.insert(
+      std::pair<std::string, std::string>(client_ip, server_ip));
+    updateForwardNAT(client_ip, public_ip, server_ip);
+  }
+
   // Update the server_sessions_table instance value
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
@@ -186,31 +257,7 @@ void LoadBalancer::invokeDNS_rr() {
       break;
     }
   }
-  std::string output = "DNS: ";
-  output.append(std::to_string(server_sessions_table.count(serverURL)));
-  output.append(" instances for ");
-  output.append(serverURL);
-  output.append("[");
-  for (std::multimap<std::string,
-    instance_infotype >::iterator iter = ppp.first;
-    iter != ppp.second; ++iter) {
-    output.append(std::get<0>(iter->second));
-    output.append("(");
-    output.append(std::to_string(std::get<1>(iter->second)));
-    output.append("); ");
-    tempLogger.append(std::get<0>(iter->second));
-    tempLogger.append("(");
-    tempLogger.append(std::to_string(std::get<1>(iter->second)));
-    tempLogger.append("); ");
-  }
-  tempLogger.append("]");
-  outlog << sc_time_stamp().to_default_time_units() << ","
-    << util.getIPAddress(rcvd_testbed_packet->getData(), headers, "src")
-    << "," << server_ip << ","
-    // << serverURL << ","
-    << tempLogger << endl;
-  output.append("]");
-  npulog(profile, cout << output << endl;)
+  logger(serverURL, server_ip);
 }
 void LoadBalancer::invokeDNS_shortestQ() {
   TestbedUtilities util;
@@ -225,8 +272,6 @@ void LoadBalancer::invokeDNS_shortestQ() {
   std::string server_ip;
   std::string public_ip;
   int serverLoad = -1;
-  std::string tempLogger;
-  tempLogger.append("[");
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
     iter != ppp.second; ++iter) {
@@ -252,11 +297,23 @@ void LoadBalancer::invokeDNS_shortestQ() {
     headers, "src");
   // Currently we are not putting clients into prefixes
   client_ip.append("/32");
-
   npulog(profile, cout << public_ip << " returned to " << client_ip
     << ". Server instance " << server_ip << endl; )
-  updateForwardNAT(client_ip, public_ip, server_ip);
-  // Update the server_sessions_table instance value
+
+  // Check if we already have this client-server connection
+  if (static_list.find(client_ip) != static_list.end() &&
+      server_ip.compare(static_list.find(client_ip)->second)) {
+      outlog << "same" << ",";
+      // This means we need not update NAT Tables
+      // cout << "invoke sq - same client-server." << endl;
+  } else {
+    outlog << "different" << ",";
+    // cout << "invoke sq - different client-server. Updating tables" << endl;
+    static_list.insert(
+      std::pair<std::string, std::string>(client_ip, server_ip));
+    // Update the server_sessions_table instance value
+    updateForwardNAT(client_ip, public_ip, server_ip);
+  }
   for (std::multimap<std::string,
     instance_infotype >::iterator iter = ppp.first;
     iter != ppp.second; ++iter) {
@@ -266,31 +323,7 @@ void LoadBalancer::invokeDNS_shortestQ() {
       break;
     }
   }
-  std::string output = "DNS: ";
-  output.append(std::to_string(server_sessions_table.count(serverURL)));
-  output.append(" instances for ");
-  output.append(serverURL);
-  output.append("[");
-  for (std::multimap<std::string,
-    instance_infotype >::iterator iter = ppp.first;
-    iter != ppp.second; ++iter) {
-    output.append(std::get<0>(iter->second));
-    output.append("(");
-    output.append(std::to_string(std::get<1>(iter->second)));
-    output.append("); ");
-    tempLogger.append(std::get<0>(iter->second));
-    tempLogger.append("(");
-    tempLogger.append(std::to_string(std::get<1>(iter->second)));
-    tempLogger.append("); ");
-  }
-  tempLogger.append("]");
-  outlog << sc_time_stamp().to_default_time_units() << ","
-    << util.getIPAddress(rcvd_testbed_packet->getData(), headers, "src")
-    << "," << server_ip << ","
-    // << serverURL << ","
-    << tempLogger << endl;
-  output.append("]");
-  npulog(profile, cout << output << endl;)
+  logger(serverURL, server_ip);
 }
 void LoadBalancer::updateServerSessionsTable() {
   TestbedUtilities util;
@@ -457,7 +490,41 @@ void LoadBalancer::updateForwardNAT(std::string client_ip,
   forward_nat_table.insert(std::pair<std::string, size_t>(
     client_ip, entry_handle));
 }
-
+void LoadBalancer::logger(std::string serverURL, std::string server_ip) {
+  TestbedUtilities util;
+  std::vector<std::string> headers =
+    util.getPacketHeaders(rcvd_testbed_packet->getData());
+  std::pair<std::multimap<std::string, instance_infotype >::iterator,
+    std::multimap<std::string, instance_infotype >::iterator>
+    ppp = server_sessions_table.equal_range(serverURL);
+  std::string tempLogger;
+  tempLogger.append("[");
+  std::string output = "DNS: ";
+  output.append(std::to_string(server_sessions_table.count(serverURL)));
+  output.append(" instances for ");
+  output.append(serverURL);
+  output.append("[");
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    output.append(std::get<0>(iter->second));
+    output.append("(");
+    output.append(std::to_string(std::get<1>(iter->second)));
+    output.append("); ");
+    tempLogger.append(std::get<0>(iter->second));
+    tempLogger.append("(");
+    tempLogger.append(std::to_string(std::get<1>(iter->second)));
+    tempLogger.append("); ");
+  }
+  tempLogger.append("]");
+  outlog << sc_time_stamp().to_default_time_units() << ","
+    << util.getIPAddress(rcvd_testbed_packet->getData(), headers, "src")
+    << "," << server_ip << ","
+    // << serverURL << ","
+    << tempLogger << endl;
+  output.append("]");
+  npulog(profile, cout << output << endl;)
+}
   /*
   pfp::cp::CommandParser parser;
   std::string insert_cmd =

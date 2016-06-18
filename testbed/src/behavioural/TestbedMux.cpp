@@ -44,8 +44,6 @@ TestbedMux::TestbedMux(sc_module_name nm , int inPortSize, pfp::core::PFPObject*
     }
     ThreadHandles.push_back(sc_spawn(sc_bind
       (&TestbedMux::TestbedMuxThread, this, 0)));
-    ThreadHandles.push_back(sc_spawn(sc_bind
-      (&TestbedMux::packetLoop_thread, this)));
 }
 void TestbedMux::init() {
     init_SIM(); /* Calls the init of sub PE's and CE's */
@@ -122,6 +120,7 @@ void TestbedMux::TestbedMuxThread(std::size_t thread_id) {
     // BypassPacket bp(0, sc_time_stamp(), cpTime);
     // bypass->put(&bp);
     if (!out->nb_can_put()) {
+      assert(!"Mux got blocked at NPU ingress! Increase fifo?");
       gotStuck = true;
     }
     out->put(packet);
@@ -130,15 +129,5 @@ void TestbedMux::TestbedMuxThread(std::size_t thread_id) {
     if (gotStuck) {
       gotStuck = false;
     }
-  }
-}
-void TestbedMux::packetLoop_thread() {
-  while (true) {
-    std::shared_ptr<TestbedPacket> packet =
-    std::dynamic_pointer_cast<TestbedPacket>(loop_in->get());
-    muxLock.lock();
-    pcap_logger->logPacket(packet->getData(), sc_time_stamp());
-    incomingPackets.push(packet);
-    muxLock.unlock();
   }
 }

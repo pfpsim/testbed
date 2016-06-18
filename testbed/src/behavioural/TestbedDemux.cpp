@@ -104,6 +104,3 @@ void TestbedDemux::processPacketStream() {
 }
 void TestbedDemux::analyzeMetrics() {
 }
-void TestbedDemux::reinsertPacket(std::shared_ptr<TestbedPacket> packet) {
-  loop_out->put(packet);
-}

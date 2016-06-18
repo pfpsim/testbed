@@ -58,7 +58,6 @@ class TCPServer: public TCPServerSIM {
   void sendLoadBalancerUpdatePacket();
 
   // Administrative methods
-  void populateLocalMap();
   void validatePacketSource_thread();
   void outgoingPackets_thread();
   void datarateManager_thread();
@@ -70,16 +69,16 @@ class TCPServer: public TCPServerSIM {
   void registerFile();
   void processFile();
   void teardownConnection();
+  void updateConnectionState();
 
  private:
   std::shared_ptr<TestbedPacket> received_packet;
-  std::map<std::string, std::string> local_map;
   std::shared_ptr<PcapLogger> pcap_logger;
   ServerConfigStruct ncs;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::map<std::string, struct ConnectionDetails> client_instances;
   std::map<std::string, size_t> server_sessions;
-  std::ofstream outlog;
+  std::ofstream se_use_logger, se_power_logger, se_throughput_logger;
 };
 
 #endif  // BEHAVIOURAL_TCPSERVER_H_

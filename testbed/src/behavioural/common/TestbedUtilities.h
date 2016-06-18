@@ -40,6 +40,7 @@
 #include <chrono>  // NOLINT(build/c++11)
 #include "systemc.h"  // NOLINT(build/include)
 #include "./TestbedPacket.h"
+#include "pfpsim/pfpsim.h"
 
 struct DistributionType {
   std::string type;
@@ -64,7 +65,8 @@ struct ClientConfigStruct {
   bool archive;
   std::vector<std::string> list;
   std::vector<std::vector<uint8_t> > header_data;
-  DelaysType delay;
+  DelaysType connection_delay;
+  // DelaysType application_delay;
 };
 struct ServerConfigStruct {
   std::string node_type;
@@ -73,8 +75,8 @@ struct ServerConfigStruct {
   int32_t datarate;
   std::vector<std::string> list;
   SizesType fsize;
-  size_t sessions;
   AddrType prefixes;
+  DelaysType application_delay;
 };
 
 /*
@@ -86,6 +88,7 @@ struct ConnectionDetails{
   std::vector<uint8_t> received_header;
   size_t file_pending;
   ConnectionStates connection_state;
+  ConnectionStates next_connection_state;
   sc_time idle_pending;
   sc_time wakeup;
   uint16_t fileIndex;
@@ -197,9 +200,9 @@ class TestbedUtilities {
   TestbedUtilities() = default;
   ~TestbedUtilities() = default;
   ClientConfigStruct getClientConfigurations(
-    std::map<std::string, std::string> configMap, std::string configFile);
+    pfp::core::PFPObject* node, std::string configFile);
   ServerConfigStruct getServerConfigurations(
-    std::map<std::string, std::string> configMap, std::string configFile);
+    pfp::core::PFPObject* node, std::string configFile);
   std::vector<std::string> getStringVector(
     const std::string &str);
   void getDefaultDistributionParameters(

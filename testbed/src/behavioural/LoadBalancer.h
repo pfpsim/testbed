@@ -68,17 +68,20 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
   void updateForwardNAT(std::string client_ip, std::string public_ip,
     std::string server_ip);
 
+  std::string getServerInstanceAddress();
+  void logger(std::string serverURL, std::string server_ip);
+
   std::shared_ptr<TestbedPacket> rcvd_testbed_packet;
   // node_id --> instance_id, instance_load
   std::multimap<std::string, instance_infotype>
     server_sessions_table;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
-  std::string getServerInstanceAddress();
   // server instance prefixes, public_ip
   std::map<std::string, std::string> reverse_nat_table;
   // client_ip, handle
   std::map<std::string, size_t> forward_nat_table;
   std::map<std::string, int> server_index;
+  std::map<std::string, std::string> static_list;
   std::ofstream outlog;
 };
 

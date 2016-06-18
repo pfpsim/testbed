@@ -1,7 +1,7 @@
 import forwarding_plane;
 service LoadBalancerS;
 
-PE LoadBalancer {
+PE LoadBalancer("LoadBalancer.cfg") {
   QueueRdI in;
   QueueWrI out;
 

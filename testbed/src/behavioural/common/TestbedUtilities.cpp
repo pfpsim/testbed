@@ -34,43 +34,42 @@
 #include <vector>
 #include <map>
 
-ClientConfigStruct TestbedUtilities::getClientConfigurations
-  (std::map<std::string, std::string> configMap, std::string configFile) {
+ClientConfigStruct TestbedUtilities::getClientConfigurations(
+  pfp::core::PFPObject* node, std::string configFile) {
   ClientConfigStruct ncs;
   try {
-    std::vector<std::string> tempvec;
-    std::string tempstr;
+    json node_params = node->GetParameter("NODE").get();
+    json connection_delays = node->GetParameter("CONNECTION_DELAYS").get();
+    json packet_fields = node->GetParameter("PACKET_FIELDS").get();
+    // json application_delays = node->GetParameter("APPLICATION_DELAYS").get();
+    json ip_address = node_params["ip_address"];
 
-    ncs.node_type = configMap.find("type")->second;
+    ncs.node_type = node_params["type"];
     if (ncs.node_type.compare("client") != 0) {
       std::cerr << "Incorrect config file " << configFile
         << " used for client configuration!" << std::endl;
       assert(false);
     }
 
-    tempstr = configMap.find("simulationTime")->second;
-
-    tempvec = getStringVector(tempstr);
-
-    if (tempvec.size() < 2) {
+    auto simulation_time = getStringVector(node_params["simulationTime"]);
+    if (simulation_time.size() < 2) {
       std:cerr << configFile << ": Incorrect simTime specified! Usage."
       <<" \"12 SC_SEC\" "
       <<std::endl;
       assert(false);
     }
-
-    if (tempvec.at(1).compare("SEC") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_SEC);
-    } else if (tempvec.at(1).compare("MS") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_MS);
-    } else if (tempvec.at(1).compare("US") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_US);
-    } else if (tempvec.at(1).compare("NS") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_NS);
-    } else if (tempvec.at(1).compare("PS") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_PS);
-    } else if (tempvec.at(1).compare("FS") == 0) {
-      ncs.end_time = sc_time(stod(tempvec.at(0)), SC_FS);
+    if (simulation_time.at(1).compare("SEC") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_SEC);
+    } else if (simulation_time.at(1).compare("MS") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_MS);
+    } else if (simulation_time.at(1).compare("US") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_US);
+    } else if (simulation_time.at(1).compare("NS") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_NS);
+    } else if (simulation_time.at(1).compare("PS") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_PS);
+    } else if (simulation_time.at(1).compare("FS") == 0) {
+      ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_FS);
     } else {
       std::cerr << configFile << ": Server/ Client Unknown unit for delay "
         << "specified!"
@@ -78,44 +77,39 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
         << std::endl;
       assert(false);
     }
-    tempstr = configMap.find("archive")->second;
+    ncs.archive = node_params["archive"];
 
-    if (tempstr.compare("true") == 0) {
-      ncs.archive = true;
-    } else {
-      ncs.archive = false;
+    auto headers_list = packet_fields["headers"];
+    ncs.list.clear();
+    for (std::string hdr : headers_list) {
+      ncs.list.push_back(hdr);
     }
-    tempstr = configMap.find("headers")->second;
-
-    ncs.list = getStringVector(tempstr);
     if (ncs.list.size() == 0) {
       std::cerr << "No headers specified!" << std::endl;
       assert(false);
     }
-    tempstr = configMap.find("delays")->second;
-    tempvec.clear();
-    tempvec = getStringVector(tempstr);
 
-    for (int index = 0; index < tempvec.size(); index++) {
-      tempstr = configMap.find("delayUnit")->second;
-      if (tempstr.compare("SEC") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_SEC));
-      } else if (tempstr.compare("MS") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_MS));
-      } else if (tempstr.compare("US") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_US));
-      } else if (tempstr.compare("NS") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_NS));
-      } else if (tempstr.compare("PS") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_PS));
-      } else if (tempstr.compare("FS") == 0) {
-        ncs.delay.delay_values.push_back(
-            sc_time(stod(tempvec.at(index)), SC_FS));
+    auto conn_delay_values = connection_delays["values"];
+    std::string conn_delay_unit = connection_delays["unit"];
+    for (int index = 0; index < conn_delay_values.size(); index++) {
+      if (conn_delay_unit.compare("SEC") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_SEC));
+      } else if (conn_delay_unit.compare("MS") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_MS));
+      } else if (conn_delay_unit.compare("US") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_US));
+      } else if (conn_delay_unit.compare("NS") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_NS));
+      } else if (conn_delay_unit.compare("PS") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_PS));
+      } else if (conn_delay_unit.compare("FS") == 0) {
+        ncs.connection_delay.delay_values.push_back(
+            sc_time(conn_delay_values.at(index), SC_FS));
       } else {
         std::cerr << "Server/ Client Unknown unit for delay specified! \n"
             << "Supported values are: SC_SEC, SC_MS, SC_US,"
@@ -123,56 +117,91 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
         assert(false);
       }
     }
-    tempvec.clear();
-    tempstr = configMap.find("delayDist")->second;
-    tempvec = getStringVector(tempstr);
-    ncs.delay.distribution.type = tempvec.at(0);
-
-    if (tempvec.size() < 2) {
-      getDefaultDistributionParameters(ncs.delay.distribution.type,
-          &ncs.delay.distribution.param1,
-          &ncs.delay.distribution.param2);
-    } else if (tempvec.size() < 3) {
-      ncs.delay.distribution.param1 = stod(tempvec.at(1));
-      ncs.delay.distribution.param2 = 0;
+    auto cd_policy_config = getStringVector(connection_delays["policy"]);
+    ncs.connection_delay.distribution.type = cd_policy_config.at(0);
+    if (cd_policy_config.size() < 2) {
+      getDefaultDistributionParameters(ncs.connection_delay.distribution.type,
+          &ncs.connection_delay.distribution.param1,
+          &ncs.connection_delay.distribution.param2);
+    } else if (cd_policy_config.size() < 3) {
+      ncs.connection_delay.distribution.param1 = stod(cd_policy_config.at(1));
+      ncs.connection_delay.distribution.param2 = 0;
     } else {
-      ncs.delay.distribution.param1 = stod(tempvec.at(1));
-      ncs.delay.distribution.param2 = stod(tempvec.at(2));
+      ncs.connection_delay.distribution.param1 = stod(cd_policy_config.at(1));
+      ncs.connection_delay.distribution.param2 = stod(cd_policy_config.at(2));
     }
-    tempvec.clear();
+    /*
+    auto app_delay_values = application_delays["values"];
+    std::string app_delay_unit = application_delays["unit"];
+    for (int index = 0; index < app_delay_values.size(); index++) {
+      if (app_delay_unit.compare("SEC") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_SEC));
+      } else if (app_delay_unit.compare("MS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_MS));
+      } else if (app_delay_unit.compare("US") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_US));
+      } else if (app_delay_unit.compare("NS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_NS));
+      } else if (app_delay_unit.compare("PS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_PS));
+      } else if (app_delay_unit.compare("FS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_FS));
+      } else {
+        std::cerr << "Server/ Client Unknown unit for delay specified! \n"
+            << "Supported values are: SC_SEC, SC_MS, SC_US,"
+            << "SC_NS, SC_PS, SC_FS" << std::endl;
+        assert(false);
+      }
+    }
+    auto ad_policy_config = getStringVector(application_delays["policy"]);
+    ncs.application_delay.distribution.type = ad_policy_config.at(0);
+    if (ad_policy_config.size() < 2) {
+      getDefaultDistributionParameters(ncs.application_delay.distribution.type,
+          &ncs.application_delay.distribution.param1,
+          &ncs.application_delay.distribution.param2);
+    } else if (ad_policy_config.size() < 3) {
+      ncs.application_delay.distribution.param1 = stod(ad_policy_config.at(1));
+      ncs.application_delay.distribution.param2 = 0;
+    } else {
+      ncs.application_delay.distribution.param1 = stod(ad_policy_config.at(1));
+      ncs.application_delay.distribution.param2 = stod(ad_policy_config.at(2));
+    }
+    */
 
-    int headerCount = stoi(configMap.find("virtualInstances")->second);
+    int instances_count = node_params["instances"];
     std::vector<std::string> clientIPs;  // , serverIPs;
     std::string serverIP;
+    auto ip_addr_policy = getStringVector(ip_address["policy"]);
 
-    tempstr = configMap.find("dhcpPolicy")->second;
-    tempvec = getStringVector(tempstr);
-    std::string cl_dnsdist = tempvec.at(0);
     double cl_dnsp1, cl_dnsp2;
-    if (tempvec.size() < 2) {
-      getDefaultDistributionParameters(cl_dnsdist, &cl_dnsp1, &cl_dnsp2);
-    } else if (tempvec.size() < 3) {
-      cl_dnsp1 = stod(tempvec.at(1));
+    if (ip_addr_policy.size() < 2) {
+      getDefaultDistributionParameters(
+        ip_addr_policy.at(0), &cl_dnsp1, &cl_dnsp2);
+    } else if (ip_addr_policy.size() < 3) {
+      cl_dnsp1 = stod(ip_addr_policy.at(1));
       cl_dnsp2 = 0;
     } else {
-      cl_dnsp1 = stod(tempvec.at(1));
-      cl_dnsp2 = stod(tempvec.at(2));
+      cl_dnsp1 = stod(ip_addr_policy.at(1));
+      cl_dnsp2 = stod(ip_addr_policy.at(2));
     }
-    tempvec.clear();
-
     std::map<int, int> cl_dnsfreq;
-    tempstr = configMap.find("dhcpPool")->second;
-    tempvec = getStringVector(tempstr);
-
+    auto ip_addr_pool = ip_address["pool"];
+    std::string ip_addr_policy_type = ip_addr_policy.at(0);
     int rnum = -1;
-    for (int index = 0; index < headerCount; index++) {
-      if (cl_dnsdist.compare("round-robin") == 0) {
+    for (int index = 0; index < instances_count; index++) {
+      if (ip_addr_policy_type.compare("round_robin") == 0) {
         rnum++;
-        if (rnum == tempvec.size()) {
+        if (rnum == ip_addr_pool.size()) {
           rnum = 0;
         }
       } else {
-        rnum = getRandomNum(0, tempvec.size() - 1, cl_dnsdist,
+        rnum = getRandomNum(0, ip_addr_pool.size() - 1, ip_addr_policy_type,
           cl_dnsp1, cl_dnsp2);
       }
       if (cl_dnsfreq.find(rnum) == cl_dnsfreq.end()) {
@@ -183,11 +212,11 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
     }
     for (std::map<int, int>::iterator it = cl_dnsfreq.begin();
       it != cl_dnsfreq.end(); ++it) {
-      // mask index: it->first
-      // mask freq : it->second
+      // prefix index: it->first
+      // prefix freq : it->second
       std::vector<std::string> ips;
       int initIndex = 1;
-      ips = getIPv4List(tempvec.at(it->first), it->second, initIndex);
+      ips = getIPv4List(ip_addr_pool.at(it->first), it->second, initIndex);
       if (ips.size() < it->second) {
         std::cerr << configFile << ": Unable to create sufficient clientIPs to "
         << "satisfy the configured dns policy!" << std::endl;
@@ -198,10 +227,10 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
       }
       ips.clear();
     }
-    tempvec.clear();
-    serverIP = configMap.find("dns_load_balancer")->second;
-    tempvec.clear();
-    for (int index = 0; index < headerCount; index++) {
+
+    serverIP = node->GetParameter("dns_load_balancer").get();
+
+    for (int index = 0; index < instances_count; index++) {
       std::vector<uint8_t> header;
       for (int nhdr = 0; nhdr < ncs.list.size(); nhdr++) {
         if (ncs.list[nhdr].compare("ethernet_t") == 0) {
@@ -224,14 +253,14 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           struct ip ip_f;
           uint8_t vhl = 69;
           ip_f.ip_vhl = vhl;
-          int tos = stoi(configMap.find("tos")->second);
+          int tos = packet_fields["tos"];
           ip_f.ip_tos = (uint8_t) tos;
           uint16_t len = 16;
           ip_f.ip_len = htons(len);
           ip_f.ip_id = htons(
             static_cast<int16_t>(getRandomNum(0, SHRT_MAX, "uniform")));
           ip_f.ip_off = 0;
-          int ttl = stoi(configMap.find("ttl")->second);
+          int ttl = packet_fields["ttl"];
           ip_f.ip_ttl = (uint8_t) ttl;
           if (ncs.list.size() >=3 && ncs.list[nhdr + 1].compare("tcp_t") == 0) {
             uint8_t proct = 6;
@@ -263,12 +292,8 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           header.insert(header.end(), data, data + sizeof(struct ip));
         } else if (ncs.list[nhdr].compare("tcp_t") == 0) {
           struct tcphdr tcp_f;
-          std::string strport = configMap.find("sport")->second;
-          uint16_t port = (uint16_t) stoi(strport);
-          tcp_f.th_sport = htons(port);
-          strport = configMap.find("dport")->second;
-          port = (uint16_t) stoi(strport);
-          tcp_f.th_dport = htons(port);
+          tcp_f.th_sport = htons((uint16_t)packet_fields["sport"]);
+          tcp_f.th_dport = htons((uint16_t)packet_fields["dport"]);
           tcp_f.th_seq = 0;
           tcp_f.th_ack = 0;
           uint8_t offx = 81;
@@ -283,14 +308,10 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
           header.insert(header.end(), data,  data + sizeof(struct tcphdr));
         } else if (ncs.list[nhdr].compare("udp_t") == 0) {
           struct udphdr udp_f;
-          std::string strport = configMap.find("sport")->second;
-          uint16_t port = (uint16_t) stoi(strport);
-          udp_f.uh_sport = htons(port);
-          strport = configMap.find("dport")->second;
-          port = (uint16_t) stoi(strport);
-          udp_f.uh_dport = htons(port);
-          udp_f.uh_ulen = 0; /* udp length */
-          udp_f.uh_sum = 0; /* udp checksum */
+          udp_f.uh_sport = htons((uint16_t)packet_fields["sport"]);
+          udp_f.uh_dport = htons((uint16_t)packet_fields["dport"]);
+          udp_f.uh_ulen = 0;  // udp length
+          udp_f.uh_sum = 0;  // udp checksum
           uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udp_f));
           header.insert(header.end(), data, data + sizeof(struct udphdr));
         } else if (ncs.list[nhdr].compare("trackhdr") == 0) {
@@ -308,118 +329,156 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations
   return ncs;
 }
 ServerConfigStruct TestbedUtilities::getServerConfigurations
-  (std::map<std::string, std::string> configMap, std::string configFile) {
+  (pfp::core::PFPObject* node, std::string configFile) {
   ServerConfigStruct ncs;
   try {
-    std::vector<std::string> tempvec;
-    std::string tempstr;
-    ncs.node_type = configMap.find("type")->second;
+    json node_params = node->GetParameter("NODE").get();
+    json instance_params = node->GetParameter("INSTANCE").get();
+    json file_sizes = node->GetParameter("FILE_SIZES").get();
+    json packet_fields = node->GetParameter("PACKET_FIELDS").get();
+    json application_delays = node->GetParameter("APPLICATION_DELAYS").get();
+    json ip_address = node_params["ip_address"];
+
+    ncs.node_type = node_params["type"];
     if (ncs.node_type.compare("server") != 0) {
       std::cerr << "Incorrect config file " << configFile
         << " used for server configuration!" << std::endl;
       assert(false);
     }
-    tempstr = configMap.find("archive")->second;
-    if (tempstr.compare("true") == 0) {
-      ncs.archive = true;
-    } else {
-      ncs.archive = false;
+    ncs.archive = node_params["archive"];
+
+    auto headers_list = packet_fields["headers"];
+    ncs.list.clear();
+    for (std::string hdr : headers_list) {
+      ncs.list.push_back(hdr);
     }
-    tempstr = configMap.find("headers")->second;
-    ncs.list = getStringVector(tempstr);
     if (ncs.list.size() == 0) {
       std::cerr << "No headers specified!" << std::endl;
       assert(false);
     }
-    tempvec.clear();
-    tempstr = configMap.find("sizes")->second;
-    tempvec = getStringVector(tempstr);
-    tempstr = configMap.find("sizeUnit")->second;
-    for (int index = 0; index < tempvec.size(); index++) {
-      int32_t tempSize = stol(tempvec.at(index));
-      if (tempstr.compare("kB") == 0) {
-        tempSize *= 1024;
-      } else if (tempstr.compare("MB") == 0) {
-        tempSize *= 1024;
-        tempSize *= 1024;
-      } else if (tempstr.compare("GB") == 0) {
-        tempSize *= 1024;
-        tempSize *= 1024;
-        tempSize *= 1024;
+
+    auto size_values = file_sizes["values"];
+    std::string size_unit = file_sizes["unit"];
+    for (int index = 0; index < size_values.size(); index++) {
+      int32_t size_val = size_values.at(index);
+      if (size_unit.compare("kB") == 0) {
+        size_val *= 1024;
+      } else if (size_unit.compare("MB") == 0) {
+        size_val *= 1024;
+        size_val *= 1024;
+      } else if (size_unit.compare("GB") == 0) {
+        size_val *= 1024;
+        size_val *= 1024;
+        size_val *= 1024;
       }
-      ncs.fsize.size_values.push_back(tempSize);
+      ncs.fsize.size_values.push_back(size_val);
     }
-    tempvec.clear();
 
-    tempstr = configMap.find("mtu")->second;
-    tempvec = getStringVector(tempstr);
-    ncs.mtu = stoi(tempvec.at(0));
-    tempstr = tempvec.at(1);
-    if (tempstr.compare("kB") == 0) {
+    std::vector<std::string> mtu_vec = getStringVector(instance_params["mtu"]);
+    ncs.mtu = stoi(mtu_vec.at(0));
+    if (mtu_vec.at(1).compare("kB") == 0) {
       ncs.mtu *= 1024;
-    } else if (tempstr.compare("MB") == 0) {
+    } else if (mtu_vec.at(1).compare("MB") == 0) {
       ncs.mtu *= 1024;
       ncs.mtu *= 1024;
-    } else if (tempstr.compare("GB") == 0) {
+    } else if (mtu_vec.at(1).compare("GB") == 0) {
       ncs.mtu *= 1024;
       ncs.mtu *= 1024;
       ncs.mtu *= 1024;
     }
-    tempvec.clear();
-
-    if (configMap.find("datarate") != configMap.end()) {
-      tempstr = configMap.find("datarate")->second;
-      tempvec = getStringVector(tempstr);
-      ncs.datarate = stol(tempvec.at(0));
-      tempstr = tempvec.at(1);
-      if (tempstr.compare("kbps") == 0) {
+    std::vector<std::string> datarate_vec = getStringVector(
+      instance_params["datarate"]);
+    if (datarate_vec.size() > 0) {
+      ncs.datarate = stol(datarate_vec.at(0));
+      if (datarate_vec.at(1).compare("kbps") == 0) {
         ncs.datarate *= 1024;
-      } else if (tempstr.compare("Mbps") == 0) {
+      } else if (datarate_vec.at(1).compare("Mbps") == 0) {
         ncs.datarate *= 1024;
         ncs.datarate *= 1024;
-      } else if (tempstr.compare("Gbps") == 0) {
+      } else if (datarate_vec.at(1).compare("Gbps") == 0) {
         ncs.datarate *= 1024;
         ncs.datarate *= 1024;
         ncs.datarate *= 1024;
       }
-      tempvec.clear();
     }
 
-    tempstr = configMap.find("dhcpPolicy")->second;
-    tempvec = getStringVector(tempstr);
-    ncs.prefixes.distribution.type = tempvec.at(0);
+    auto ip_addr_pool_values = ip_address["pool"];
+    ncs.prefixes.prefix_values.clear();
+    for (std::string val : ip_addr_pool_values) {
+      ncs.prefixes.prefix_values.push_back(val);
+    }
 
-    if (tempvec.size() < 2) {
+    std::string ip_addr_policy = ip_address["policy"];
+    std::vector<std::string> addr_policy_vec = getStringVector(ip_addr_policy);
+    ncs.prefixes.distribution.type = addr_policy_vec.at(0);
+    if (addr_policy_vec.size() < 2) {
       getDefaultDistributionParameters(ncs.prefixes.distribution.type,
           &ncs.prefixes.distribution.param1,
           &ncs.prefixes.distribution.param2);
-    } else if (tempvec.size() < 3) {
-      ncs.prefixes.distribution.param1 = stod(tempvec.at(1));
+    } else if (addr_policy_vec.size() < 3) {
+      ncs.prefixes.distribution.param1 = stod(addr_policy_vec.at(1));
       ncs.prefixes.distribution.param2 = 0;
     } else {
-      ncs.prefixes.distribution.param1 = stod(tempvec.at(1));
-      ncs.prefixes.distribution.param2 = stod(tempvec.at(2));
+      ncs.prefixes.distribution.param1 = stod(addr_policy_vec.at(1));
+      ncs.prefixes.distribution.param2 = stod(addr_policy_vec.at(2));
     }
-    tempvec.clear();
 
-    tempstr = configMap.find("dhcpPool")->second;
-    ncs.prefixes.prefix_values = getStringVector(tempstr);
-
-    tempstr = configMap.find("sizeDist")->second;
-    tempvec = getStringVector(tempstr);
-    ncs.fsize.distribution.type = tempvec.at(0);
-    if (tempvec.size() < 2) {
+    std::string file_policy = file_sizes["policy"];
+    std::vector<std::string> file_policy_vec = getStringVector(file_policy);
+    ncs.fsize.distribution.type = file_policy_vec.at(0);
+    if (file_policy_vec.size() < 2) {
       getDefaultDistributionParameters(ncs.fsize.distribution.type,
           &ncs.fsize.distribution.param1,
           &ncs.fsize.distribution.param2);
-    } else if (tempvec.size() < 3) {
-      ncs.fsize.distribution.param1 = stod(tempvec.at(1));
+    } else if (file_policy_vec.size() < 3) {
+      ncs.fsize.distribution.param1 = stod(file_policy_vec.at(1));
       ncs.fsize.distribution.param2 = 0;
     } else {
-      ncs.fsize.distribution.param1 = stod(tempvec.at(1));
-      ncs.fsize.distribution.param2 = stod(tempvec.at(2));
+      ncs.fsize.distribution.param1 = stod(file_policy_vec.at(1));
+      ncs.fsize.distribution.param2 = stod(file_policy_vec.at(2));
     }
-    tempvec.clear();
+
+    auto app_delay_values = application_delays["values"];
+    std::string app_delay_unit = application_delays["unit"];
+    for (int index = 0; index < app_delay_values.size(); index++) {
+      if (app_delay_unit.compare("SEC") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_SEC));
+      } else if (app_delay_unit.compare("MS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_MS));
+      } else if (app_delay_unit.compare("US") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_US));
+      } else if (app_delay_unit.compare("NS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_NS));
+      } else if (app_delay_unit.compare("PS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_PS));
+      } else if (app_delay_unit.compare("FS") == 0) {
+        ncs.application_delay.delay_values.push_back(
+            sc_time(app_delay_values.at(index), SC_FS));
+      } else {
+        std::cerr << "Server/ Client Unknown unit for delay specified! \n"
+            << "Supported values are: SC_SEC, SC_MS, SC_US,"
+            << "SC_NS, SC_PS, SC_FS" << std::endl;
+        assert(false);
+      }
+    }
+    auto ad_policy_config = getStringVector(application_delays["policy"]);
+    ncs.application_delay.distribution.type = ad_policy_config.at(0);
+    if (ad_policy_config.size() < 2) {
+      getDefaultDistributionParameters(ncs.application_delay.distribution.type,
+          &ncs.application_delay.distribution.param1,
+          &ncs.application_delay.distribution.param2);
+    } else if (ad_policy_config.size() < 3) {
+      ncs.application_delay.distribution.param1 = stod(ad_policy_config.at(1));
+      ncs.application_delay.distribution.param2 = 0;
+    } else {
+      ncs.application_delay.distribution.param1 = stod(ad_policy_config.at(1));
+      ncs.application_delay.distribution.param2 = stod(ad_policy_config.at(2));
+    }
   } catch (std::exception &e) {
     std::cerr << "Exception while parsing server nodes! Config file: "
       << configFile << std::endl;
@@ -1028,7 +1087,7 @@ std::string TestbedUtilities::getServerInstanceAddress(const AddrType &addrType,
     size_t prefixIndex = -1;
     int elements = 10;
     size_t prefixLen = addrType.prefix_values.size();
-    if (addrType.distribution.type.compare("round-robin") == 0) {
+    if (addrType.distribution.type.compare("round_robin") == 0) {
       // loop to go over the prefixes one by one
       // Everytime we get elements number of IPs
       // then we check what we can assign first :)
@@ -1354,7 +1413,7 @@ void TestbedUtilities::getLoadBalancerPacket(
   // |   *[instances    |
   // |     load]        |
   // --------------------
-  struct tcphdr *tcpptr;
+  // struct tcphdr *tcpptr;
   lb_packet->setData().clear();
   // if (received_packet == NULL) {
     // This is generally the case when the server is initializing...

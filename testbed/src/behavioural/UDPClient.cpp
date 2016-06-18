@@ -34,18 +34,18 @@
 #include <utility>
 #include <vector>
 
-UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"ClientConnections.csv") {  //  NOLINT
+UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"UDPClientsRequestResponse.csv") {  //  NOLINT
   std::istringstream cf(configfile);
   TestbedUtilities util;
-  populateLocalMap();
-  ncs = util.getClientConfigurations(local_map, configfile);
+  ncs = util.getClientConfigurations(this, configfile);
   if (ncs.archive) {
     std::string full_name;
     getline(cf, full_name, '.');
     full_name.append("_client.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
-  outlog << "LogicalTime,Client,Server" << endl;
+  // Log information regarding the request-response times
+  outlog << "Client,LogicalTime,Request/Response" << endl;
   addClientInstances();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -66,48 +66,13 @@ void UDPClient::UDPClient_PortServiceThread() {
 void UDPClient::UDPClientThread(std::size_t thread_id) {
   //  Thread function for module functionalty
 }
-void UDPClient::populateLocalMap() {
-  std::string tempstr = GetParameter("type").get();
-  local_map.insert(std::pair<std::string, std::string>("type", tempstr));
-  tempstr = GetParameter("simulationTime").get();
-  local_map.insert(std::pair<std::string, std::string>
-    ("simulationTime", tempstr));
-  tempstr = GetParameter("virtualInstances").get();
-  local_map.insert(std::pair<std::string, std::string>
-    ("virtualInstances", tempstr));
-  tempstr = GetParameter("archive").get();
-  local_map.insert(std::pair<std::string, std::string>("archive", tempstr));
-  tempstr = GetParameter("headers").get();
-  local_map.insert(std::pair<std::string, std::string>("headers", tempstr));
-  tempstr = GetParameter("delays").get();
-  local_map.insert(std::pair<std::string, std::string>("delays", tempstr));
-  tempstr = GetParameter("delayUnit").get();
-  local_map.insert(std::pair<std::string, std::string>("delayUnit", tempstr));
-  tempstr = GetParameter("delayDist").get();
-  local_map.insert(std::pair<std::string, std::string>("delayDist", tempstr));
-  tempstr = GetParameter("dhcpPolicy").get();
-  local_map.insert(std::pair<std::string, std::string>("dhcpPolicy", tempstr));
-  tempstr = GetParameter("dhcpPool").get();
-  local_map.insert(std::pair<std::string, std::string>("dhcpPool", tempstr));
-  tempstr = GetParameter("tos").get();
-  local_map.insert(std::pair<std::string, std::string>("tos", tempstr));
-  tempstr = GetParameter("ttl").get();
-  local_map.insert(std::pair<std::string, std::string>("ttl", tempstr));
-  tempstr =  GetParameter("sport").get();
-  local_map.insert(std::pair<std::string, std::string>("sport", tempstr));
-  tempstr = GetParameter("dport").get();
-  local_map.insert(std::pair<std::string, std::string>("dport", tempstr));
-  tempstr = GetParameter("se_addr").get();
-  local_map.insert(std::pair<std::string, std::string>("se_addr", tempstr));
-  tempstr = GetParameter("dns_load_balancer").get();
-  local_map.insert(std::pair<std::string, std::string>("dns_load_balancer",
-    tempstr));
-}
 // Administrative methods
 void UDPClient::addClientInstances() {
   TestbedUtilities util;
   for (std::vector<uint8_t> header : ncs.header_data) {
     std::string clientID = util.getIPAddress(header, ncs.list, "src");
+    npulog(debug, cout << "Adding client instance: "
+      << clientID << endl;)
     struct ConnectionDetails cdet;
     cdet.connection_state = serverQuery;
     cdet.file_pending = 0;
@@ -121,17 +86,9 @@ void UDPClient::addClientInstances() {
   }
 }
 void UDPClient::activateClientInstance_thread() {
-  std::string maxinst = GetParameter("virtualInstances").get();
-  int maxInstances = 0;
-  try {
-     maxInstances = stoi(maxinst);
-  }catch (std::exception &e) {
-    std::cerr << "Exception while parsing client/server nodes!" << endl;
-    assert(false);
-  }
+  int maxInstances = SimulationParameters["NODE"]["instances"].get();
   if (maxInstances == 0) {
     // Configuration specifies zero live instances!
-
     return;
   }
   if (ncs.end_time.to_double() == 0.0) {
@@ -140,7 +97,7 @@ void UDPClient::activateClientInstance_thread() {
     return;
   }
   size_t maxHeaderIndex = ncs.header_data.size();
-  size_t delayLen = ncs.delay.delay_values.size();
+  size_t delayLen = ncs.connection_delay.delay_values.size();
   if (maxInstances > maxHeaderIndex) {
     std::cerr << "FATAL ERROR: Check the configuration file. Maximum instances"
     << " cannot be more than number of headers" << endl;
@@ -159,20 +116,25 @@ void UDPClient::activateClientInstance_thread() {
     for (std::map<std::string, struct ConnectionDetails>::iterator it
     = client_instances.begin(); it != client_instances.end(); ++it) {
       if (!it->second.active) {
+        npulog(debug, cout << "Activating client instance: "
+          << it->first << endl;)
         // Activating a client Instance.
         // Either add or activate a instance from allClientDetails map  and
         // send request for UDP file transfer
-        if (ncs.delay.distribution.type.compare("round-robin") == 0) {
+        if (ncs.connection_delay.distribution.type.compare(
+          "round_robin") == 0) {
          it->second.delayIndex++;
          if (it->second.delayIndex == delayLen) {
            it->second.delayIndex = 0;
          }
         } else {
           it->second.delayIndex = util.getRandomNum(0, delayLen - 1,
-            ncs.delay.distribution.type, ncs.delay.distribution.param1,
-            ncs.delay.distribution.param2);
+            ncs.connection_delay.distribution.type,
+            ncs.connection_delay.distribution.param1,
+            ncs.connection_delay.distribution.param2);
         }
-        sc_time waittime = ncs.delay.delay_values.at(it->second.delayIndex);
+        sc_time waittime =
+          ncs.connection_delay.delay_values.at(it->second.delayIndex);
         // Adding client instance with idle delay of: waittime
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
@@ -181,9 +143,16 @@ void UDPClient::activateClientInstance_thread() {
         // Activating: it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
+        npulog(debug, cout << "Invoking DNS for " << it->first << endl;)
         acquireServerInstance(it->first);
         // We activated a client instance. Waiting for it to connect!
+        npulog(debug, cout
+          << "Waiting for the client to finish connection before we "
+          << "activate the next client" << endl;)
         wait(activate_client_instance_event);
+        npulog(debug,
+          cout << "Client connected successully, we can activate next client"
+            << endl;)
         // establishConnection(it->first);
       }
     }
@@ -192,7 +161,13 @@ void UDPClient::activateClientInstance_thread() {
     // or after its UDP file transfer is done
     // We activated the specified number of client instances.
     // Waiting for next activation request!
+    npulog(debug,
+      cout << "Required client instances have been activated. Waiting for "
+        << "next round of connections" << endl;)
     wait(reactivate_client_instance_event);
+    npulog(debug,
+      cout << "Notification for termination of a client instance received"
+        <<endl;)
     // reactivate_client_instance_event notified.
   }
 }
@@ -209,23 +184,16 @@ void UDPClient::scheduler_thread() {
     // This thread cannot be executed like this :)
     wait(SC_ZERO_TIME);
   }
-  std::string maxinst = GetParameter("virtualInstances").get();
-  int maxInstances = 0;
-  try {
-     maxInstances = stoi(maxinst);
-  }catch (std::exception &e) {
-    std::cerr << "Exception while parsing client/server nodes!" << endl;
-    assert(false);
-  }
+  int maxInstances = SimulationParameters["NODE"]["instances"].get();
   if (maxInstances == 0) {
     // Configuration specifies zero live instances!
-
     return;
   } else if (ncs.end_time.to_double() == 0.0) {
     // Configuration specifies zero life
     return;
   }
   double rtime = 1;
+  sc_time_unit runit = SC_NS;
   while (true) {
     if (ncs.end_time.to_double() == 0.0) {
       // Simulation done for specified time! All files end!
@@ -235,7 +203,6 @@ void UDPClient::scheduler_thread() {
     if (ncs.end_time <= sc_time_stamp()) {
         // Simulation done for specified time! All files end!
         // Scheduler ends because of specified time exceeded
-
         return;
     }
     int idleInstances = 0;
@@ -245,16 +212,19 @@ void UDPClient::scheduler_thread() {
     for (std::map<std::string, ConnectionDetails>::iterator it =
       client_instances.begin(); it != client_instances.end(); ++it) {
       if (it->second.connection_state == idle) {
+        npulog(debug, cout << it->first
+          << " is in idle status" << endl;)
         if (it->second.wakeup <= sc_time_stamp()) {
           it->second.active = false;
           it->second.connection_state = serverQuery;
           // Re-activating client instance for the finished file. Wakeup!
-          // cout << "wake up client" << endl;
+          npulog(debug, cout << "wake up call for " << it->first << endl;)
           reactivate_client_instance_event.notify();
           // Allow the client thread to be instantiated immediately by yielding
           wait(SC_ZERO_TIME);
           clWakeup = true;
           rtime = 1;
+          runit = SC_NS;
           break;
         }
         if (idleInstances == 0) {
@@ -271,30 +241,58 @@ void UDPClient::scheduler_thread() {
     if (!clWakeup) {
       if (idleInstances == client_instances.size() &&
         !client_instances.empty()) {
-         // All client instances are idle[idleInstances]!
-         // Going for a wait now for minTime
-         wait(minTime);
-         client_instances.find(minTimeCID)->second.active = false;
-         // FOR ALL OTHER client instances which are also idle state,
-         // this amount should be deducted
-         for (std::map<std::string, ConnectionDetails>::iterator it
-           = client_instances.begin(); it != client_instances.end(); ++it) {
-           if (it->second.connection_state == idle) {
-             it->second.idle_pending -= minTime;
-           }
-         }
+        // All client instances are idle[idleInstances]!
+        // Going for a wait now for minTime
+        npulog(debug, cout << "All client instances are idle. "
+          << "Going for a wait now for minTime" << minTime << endl;)
+        wait(minTime);
+        npulog(debug, cout << minTimeCID
+          << " has been identified as the least idle time"
+          << ". We have waited for the time" << endl;)
+        client_instances.find(minTimeCID)->second.active = false;
+        // FOR ALL OTHER client instances which are also idle state,
+        // this amount should be deducted
+        for (std::map<std::string, ConnectionDetails>::iterator it
+          = client_instances.begin(); it != client_instances.end(); ++it) {
+          if (it->second.connection_state == idle) {
+            it->second.idle_pending -= minTime;
+          }
+        }
         // Activating client instance for the finished file.
         // npulog(profile, cout << "client idle time over" << endl;)
-
+        npulog(debug, cout << "For "
+          << minTimeCID << "we send the reactivate_client notify"
+          << endl;)
         reactivate_client_instance_event.notify();
         wait(SC_ZERO_TIME);
         rtime = 1;
-       } else {
-         // wait for resolution time
-         wait(rtime, SC_NS);
-         rtime = rtime*2;
-         // udp client is uncontrolled!
-       }
+        runit = SC_NS;
+      } else {
+        // wait for resolution time
+        if (rtime > 1000) {
+          switch (runit) {
+            case SC_NS:
+              runit = SC_US;
+              rtime = 1;
+              break;
+            case SC_US:
+              runit = SC_MS;
+              rtime = 1;
+              break;
+            case SC_MS:
+              runit = SC_SEC;
+              rtime = 1;
+              break;
+            default:
+              // Do nothing
+              npulog(debug, cout << "lala land" << endl;)
+          }
+        }
+        sc_time polling_time = sc_time(rtime, runit);
+        wait(polling_time);
+        rtime = rtime*2;
+        // udp client is uncontrolled!
+      }
     }
   }
 }
@@ -304,9 +302,10 @@ void UDPClient::outgoingPackets_thread() {
     std::shared_ptr<TestbedPacket> packet =
     std::dynamic_pointer_cast<TestbedPacket>(outgoing_packets.pop());
     if (!out->nb_can_put()) {
-      // Client stuck at MUX Ingress! This is bad!
+      assert(!"Client got stuck at Mux input! FATAL. Increase fifo size?");
       gotStuck = true;
     }
+    npulog(debug, cout << "Sending packet from client to server" << endl;)
     out->put(packet);
     if (ncs.archive) {
       pcap_logger->logPacket(packet->setData(), sc_time_stamp());
@@ -323,16 +322,21 @@ void UDPClient::validatePacketDestination_thread() {
     received_packet = std::dynamic_pointer_cast<TestbedPacket>(in->get());
     TestbedUtilities util;
     std::string clientID = util.getIPAddress(received_packet->getData(),
-    ncs.list, "dst");
+      ncs.list, "dst");
+      npulog(debug, cout << clientID << " received a packet" << endl;)
     struct ConnectionDetails cdet;
     if (client_instances.find(clientID) == client_instances.end()) {
       // Strange! We got a packet we have nothing to do with! Ignored
+      npulog(debug,
+        cout << "Strange! We got a packet we have nothing to do with! Ignored"
+          << endl;)
       continue;
     } else {
       cdet = client_instances.find(clientID)->second;
     }
     switch (cdet.connection_state) {
       case serverQuery:
+        npulog(debug, cout << clientID << "in serverQuery state" << endl;)
         acquireServerInstance("0");
         break;
       case connectionSetup:
@@ -341,12 +345,15 @@ void UDPClient::validatePacketDestination_thread() {
         // sendFileID(0);
         break;
       case fileRequest:
+        npulog(debug, cout << clientID << "in fileRequest state" << endl;)
         requestFile();
         break;
       case fileResponse:
+        npulog(debug, cout << clientID << "in fileResponse state" << endl;)
         registerFile();
         break;
       case fileProcessing:
+        npulog(debug, cout << clientID << "in fileProcessing state" << endl;)
         processFile();
         break;
       case connectionTeardown:
@@ -356,6 +363,7 @@ void UDPClient::validatePacketDestination_thread() {
         // nothing to do actually, this is handled by a thread
         // If we get more packets here, I believe they will simply be
         // rejected at this stage :D
+        npulog(debug, cout << clientID << "in idle state" << endl;)
         break;
     }
   }
@@ -378,9 +386,11 @@ void UDPClient::acquireServerInstance(std::string clientID) {
       cdet->received_header.end());
     // Client sending DNS request!"
     util.getDnsPacket(reqPacket, resPacket, 0, hdrList,
-      GetParameter("se_addr").get());
+      SimulationParameters["NODE"]["serverURL"].get());
     util.finalizePacket(resPacket, hdrList);
     // Client clientID sends DNS request
+    npulog(debug, cout << "Client " << clientID << " sends DNS request"
+      << endl;)
     outgoing_packets.push(resPacket);
   } else {
     std::string serverID = util.getDNSResponseIPAddr(received_packet, hdrList);
@@ -389,12 +399,14 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     // Client received DNS response.
     npulog(profile, cout << Red << clientID << " is assigned with " << serverID
       << txtrst << endl;)
-    outlog << sc_time_stamp().to_default_time_units() << ","
-      << clientID << ","
-      << serverID << endl;  // NOLINT
+    // outlog << sc_time_stamp().to_default_time_units() << ","
+    //  << clientID << ","
+    //  << serverID << endl;  // NOLINT
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;
+    npulog(debug, cout << "Client " << clientID << " received DNS response. "
+      << "Going for establish connection with " << serverID << endl;)
     establishConnection(clientID, serverID);
   }
 }
@@ -419,6 +431,8 @@ void UDPClient::establishConnection(std::string clientID,
     // as part of file request!
     util.finalizePacket(reqPacket, ncs.list);
     outgoing_packets.push(reqPacket);
+    outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+      << "request" << endl;
     cdet->connection_state = fileResponse;
   }
 }
@@ -438,6 +452,8 @@ void UDPClient::registerFile() {
   size_t payloadLen = pktsize - headerLen;
   int32_t fileSize = 0;
   if (payloadLen == 4) {
+    outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+      << "response" << endl;
     activate_client_instance_event.notify();
     uint32_t *fsptr =
     static_cast<uint32_t*>(

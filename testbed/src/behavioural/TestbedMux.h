@@ -56,7 +56,6 @@ class TestbedMux: public TestbedMuxSIM {
   std::vector<sc_process_handle> ThreadHandles;
 
   void BypassNPU(std::shared_ptr<pfp::core::TrType> inputS);
-  void packetLoop_thread();
 
  private:
   MTQueue<std::shared_ptr<pfp::core::TrType> > incomingPackets;

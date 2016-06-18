@@ -59,7 +59,6 @@ class TCPClient: public TCPClientSIM {
   void validatePacketDestination_thread();
 
   // Administrative methods
-  void populateLocalMap();
   void addClientInstances();
   void activateClientInstance_thread();
   void scheduler_thread();
@@ -76,7 +75,6 @@ class TCPClient: public TCPClientSIM {
  private:
   sc_event reactivate_client_instance_event;
   sc_event activate_client_instance_event;
-  std::map<std::string, std::string> local_map;
   std::shared_ptr<PcapLogger> pcap_logger;
   ClientConfigStruct ncs;
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
