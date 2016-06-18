@@ -93,9 +93,6 @@ npulog(debug, cout << "We will be creating a server instance: "
     util.getPacketHeaders(lb_packet->getData());
   util.finalizePacket(lb_packet, hdrList);
   // Pushing load balancing packet for table update - 01"
-  npulog(debug,
-    cout <<"Intimating the load balancer about the server instance: "
-      << serverID << endl;)
   outgoing_packets.push(lb_packet);
 }
 // Administrative methods
@@ -445,8 +442,6 @@ std::string TCPServer::serverSessionsManager() {
       total_active_sessions += it->second;
     }
     total_available_sessions = total_sessions - total_active_sessions;
-    cout << total_available_sessions << " = " << total_sessions << " - "
-      << total_active_sessions << endl;
     std::string outputTemp;
     outputTemp.append("Available sessions(");
     outputTemp.append(std::to_string(total_available_sessions));
@@ -459,12 +454,6 @@ std::string TCPServer::serverSessionsManager() {
       << "current threshold: " << current_threshold << endl
       << "configured threshold: " << config_threshold << endl
       << endl;)
-      cout << "max sessions: " << maxSessions << endl
-        << "number of instances: " << server_sessions.size() << endl
-        << "total sessions: " << total_sessions << endl
-        << "total_available_sessions: " << total_available_sessions << endl
-        << "current threshold: " << current_threshold << endl
-        << "configured threshold: " << config_threshold << endl;
     // This is dependant on the configured threshold
     // But 1 is the minimum number of available sessions required no matter what
     if (total_available_sessions <= 1 ||
@@ -481,7 +470,6 @@ std::string TCPServer::serverSessionsManager() {
       // sendLoadBalancerUpdatePacket();
     }
     npulog(profile, cout << Yellow << outputTemp << txtrst << endl;)
-    cout << Yellow << outputTemp << txtrst << endl;
     npulog(debug, cout << Yellow << outputTemp << txtrst << endl;)
   } else {
     // We do not receive packets here anymore

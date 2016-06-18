@@ -104,21 +104,21 @@ PE Testbed("Testbed.cfg") {
   TestbedQueue mux_in[4];
   TestbedQueue demux_out[4];
 
-  TCPClient client_tcp_01("client_tcp_01.cfg");
-  bind client_tcp_01.out {mux_in[0]};
-  bind client_tcp_01.in {demux_out[0]};
-
-  TCPClient client_tcp_02("client_tcp_02.cfg");
-  bind client_tcp_02.out {mux_in[1]};
-  bind client_tcp_02.in {demux_out[1]};
-
-  TCPClient client_tcp_03("client_tcp_03.cfg");
-  bind client_tcp_03.out {mux_in[2]};
-  bind client_tcp_03.in {demux_out[2]};
-
   TCPServer server_tcp_test("server_tcp_test.cfg");
   bind server_tcp_test.out {mux_in[3]};
   bind server_tcp_test.in {demux_out[3]};
+
+  TCPClient client_tcp_test_01("client_tcp_test_01.cfg");
+  bind client_tcp_test_01.out {mux_in[0]};
+  bind client_tcp_test_01.in {demux_out[0]};
+
+  TCPClient client_tcp_test_02("client_tcp_test_02.cfg");
+  bind client_tcp_test_02.out {mux_in[1]};
+  bind client_tcp_test_02.in {demux_out[1]};
+
+  TCPClient client_tcp_test_03("client_tcp_test_03.cfg");
+  bind client_tcp_test_03.out {mux_in[2]};
+  bind client_tcp_test_03.in {demux_out[2]};
 
   TestbedQueue bypass;
   TestbedMux mux;
@@ -127,7 +127,7 @@ PE Testbed("Testbed.cfg") {
   bind mux.bypass {bypass};
   bind demux.bypass {bypass};
   bind mux.in {mux_in[0], mux_in[1], mux_in[2], mux_in[3], in_cp};
-  bind demux.out {demux_out[0], demux_out[1], demux_out[2], out_cp};
+  bind demux.out {demux_out[0], demux_out[1], demux_out[2], demux_out[3], out_cp};
 
   bind mux.out {out_npu};
   bind demux.in {in_npu};
