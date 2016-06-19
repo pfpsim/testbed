@@ -55,7 +55,6 @@ class UDPServer: public UDPServerSIM {
   std::vector<sc_process_handle> ThreadHandles;
 
   void initializeServer();
-  void sendLoadBalancerUpdatePacket();
 
   // Administrative methods
   void validatePacketSource_thread();

@@ -64,7 +64,8 @@ class LoadBalancer: public LoadBalancerSIM {  // NOLINT(whitespace/line_length)
   void invokeDNS_rr();
   void invokeDNS_shortestQ();
   void updateServerSessionsTable();
-  void updateReverseNAT(const std::vector<std::string> &prefixes);
+  void updateReverseNAT(const std::vector<std::string> &instances,
+    std::string public_ip);
   void updateForwardNAT(std::string client_ip, std::string public_ip,
     std::string server_ip);
 

@@ -112,6 +112,7 @@ void TCPClient::activateClientInstance_thread() {
       // to end.
       return;
     }
+    bool reiterate_loop = false;
     // size_t activeClients = 0;
     for (std::map<std::string, struct ConnectionDetails>::iterator it
     = client_instances.begin(); it != client_instances.end(); ++it) {
@@ -139,7 +140,6 @@ void TCPClient::activateClientInstance_thread() {
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
         it->second.file_pending = 0;
-        it->second.active = true;
         // Activating: it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
@@ -149,11 +149,24 @@ void TCPClient::activateClientInstance_thread() {
         npulog(debug, cout
           << "Waiting for the client to finish connection before we "
           << "activate the next client" << endl;)
-        wait(activate_client_instance_event);
-        npulog(debug,
-          cout << "Client connected successully, we can activate next client"
-            << endl;)
-        // establishConnection(it->first);
+        sc_time start_time = sc_time_stamp();
+        wait(ncs.timeout, activate_client_instance_event);
+        sc_time finish_time = sc_time_stamp();
+
+        if (finish_time - start_time >= ncs.timeout) {
+          // We need to send request for this client again!
+          npulog(profile, cout << Red << it->first
+            << "Client connection timed-out!"
+            << "We will retry at the end of the list again!" << txtrst << endl;)
+          reiterate_loop = true;
+        } else {
+          // The client instance is now active
+          it->second.active = true;
+          npulog(debug,
+            cout << "Client connected successully, we can activate next client"
+              << endl;)
+          // establishConnection(it->first);
+        }
       }
     }
     // Wait for a client instance to be activated
@@ -161,14 +174,16 @@ void TCPClient::activateClientInstance_thread() {
     // or after its TCP file transfer is done
     // We activated the specified number of client instances.
     // Waiting for next activation request!
-    npulog(debug,
-      cout << "Required client instances have been activated. Waiting for "
-        << "next round of connections" << endl;)
-    wait(reactivate_client_instance_event);
-    npulog(debug,
-      cout << "Notification for termination of a client instance received"
-        <<endl;)
-    // reactivate_client_instance_event notified.
+    if (!reiterate_loop) {
+      npulog(debug,
+        cout << "Required client instances have been activated. Waiting for "
+          << "next round of connections" << endl;)
+      wait(reactivate_client_instance_event);
+      npulog(debug,
+        cout << "Notification for termination of a client instance received"
+          <<endl;)
+      // reactivate_client_instance_event notified.
+    }
   }
 }
 void TCPClient::scheduler_thread() {
@@ -468,9 +483,9 @@ void TCPClient::requestFile() {
   // Client sending file request packet"
   outgoing_packets.push(reqPacket);
   npulog(debug, cout << clientID << " sending request for file transfer."
-    << endl;
+    << endl;)
   outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
-    << "request" << endl;)
+    << "request" << endl;
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileResponse;
 }

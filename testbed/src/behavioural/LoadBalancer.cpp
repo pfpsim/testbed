@@ -174,7 +174,7 @@ void LoadBalancer::invokeDNS_static() {
     logger(serverURL, server_ip);
   } else {
     // Find the shortest_queue server instance and allocate it to the client
-    // Can I simple invoke the shortest_queue algorithm here??
+    // Can I simply invoke the shortest_queue algorithm here??
     // cout << "invoke static - different client-server, going for sq" << endl;
     invokeDNS_shortestQ();
   }
@@ -235,15 +235,14 @@ void LoadBalancer::invokeDNS_rr() {
 
   // Check if we already have this client-server connection
   if (static_list.find(client_ip) != static_list.end() &&
-        server_ip.compare(static_list.find(client_ip)->second)) {
+        server_ip.compare(static_list.find(client_ip)->second) == 0) {
       // This means we need not update NAT Tables
       outlog << "same" << ",";
       // cout << "invoke rr - same client-server" << endl;
   } else {
     outlog << "different" << ",";
     // cout << "invoke rr - different client-server. Updating tables" << endl;
-    static_list.insert(
-      std::pair<std::string, std::string>(client_ip, server_ip));
+    static_list[client_ip] = server_ip;
     updateForwardNAT(client_ip, public_ip, server_ip);
   }
 
@@ -284,6 +283,15 @@ void LoadBalancer::invokeDNS_shortestQ() {
       server_ip  = std::get<0>(instance_values);
       serverLoad = std::get<1>(instance_values);
       public_ip  = std::get<2>(instance_values);
+    } else if (serverLoad == std::get<1>(instance_values)) {
+      // We will randomly select this :)
+      // Well, uniformly
+      int rnum = util.getRandomNum(0, 100, "uniform");
+      if (rnum % 2 == 0) {
+        server_ip  = std::get<0>(instance_values);
+        serverLoad = std::get<1>(instance_values);
+        public_ip  = std::get<2>(instance_values);
+      }
     }
   }
   std::shared_ptr<TestbedPacket> resPacket =
@@ -292,7 +300,6 @@ void LoadBalancer::invokeDNS_shortestQ() {
   util.finalizePacket(resPacket, headers);
   outgoing_packets.push(resPacket);
 
-
   std::string client_ip = util.getIPAddress(rcvd_testbed_packet->getData(),
     headers, "src");
   // Currently we are not putting clients into prefixes
@@ -300,17 +307,28 @@ void LoadBalancer::invokeDNS_shortestQ() {
   npulog(profile, cout << public_ip << " returned to " << client_ip
     << ". Server instance " << server_ip << endl; )
 
+
+  // cout << "Server IP: " << server_ip << endl
+  //  << "Client IP: " << client_ip << endl;
   // Check if we already have this client-server connection
+  // cout << "Size of list is: " << static_list.size() << endl;
+  // if (static_list.find(client_ip) != static_list.end()) {
+  // cout << "The client is present in the static list" << endl;
+  // cout << static_list.find(client_ip)->first << endl
+  //    << static_list.find(client_ip)->second << endl;
+  // }
+
   if (static_list.find(client_ip) != static_list.end() &&
-      server_ip.compare(static_list.find(client_ip)->second)) {
+      server_ip.compare(static_list.find(client_ip)->second) == 0) {
+      // cout << "same" << endl;
       outlog << "same" << ",";
       // This means we need not update NAT Tables
       // cout << "invoke sq - same client-server." << endl;
   } else {
+    // cout << "different" << endl;
     outlog << "different" << ",";
     // cout << "invoke sq - different client-server. Updating tables" << endl;
-    static_list.insert(
-      std::pair<std::string, std::string>(client_ip, server_ip));
+    static_list[client_ip] = server_ip;
     // Update the server_sessions_table instance value
     updateForwardNAT(client_ip, public_ip, server_ip);
   }
@@ -352,82 +370,100 @@ void LoadBalancer::updateServerSessionsTable() {
     buffer[index + letters] = '.';
     index = index + letters;
   }
-  std::string node_id = std::string(buffer);
+  std::string public_url = std::string(buffer);
   urlLen += 4 - (urlLen % 4);
   temp_vector.clear();
-  // Next, extract from the payload the prefix counts, prefix masks and lengths
+
+
+  // Next, extract from the payload the public ip, instance counts,
+  // instance addresses
+  struct in_addr *temppublicip;
   payloadPos += urlLen;
+  temppublicip = static_cast<struct in_addr*>(static_cast<void*>(
+    rcvd_testbed_packet->setData().data() + payloadPos));
+  std::string reverse_public_ip = inet_ntoa(*temppublicip);
+  std::string forward_public_ip = inet_ntoa(*temppublicip);
+  forward_public_ip.append("/32");
+  payloadPos += sizeof(struct in_addr);
+
+  // cout << "Reverse Public IP is: " << reverse_public_ip << endl
+  //  << "Forward public IP is: " << forward_public_ip << endl;
+
   // prefix counts - 32 bits
-  uint32_t prefix_count = ntohl(*(static_cast<uint32_t*>(
+  uint32_t instance_count = ntohl(*(static_cast<uint32_t*>(
     static_cast<void*>(rcvd_testbed_packet->setData().data() + payloadPos))));
+  // cout << "Number of instances: " << instance_count << endl;
   payloadPos += sizeof(uint32_t);
-  std::vector<std::string> prefixes;
-  for (size_t index = 0; index < prefix_count; index++) {
+  std::vector<std::string> forward_instance_ips, reverse_instance_ips;
+  for (size_t index = 0; index < instance_count; index++) {
     struct in_addr *tempip;
     if (index != 0) {
-      payloadPos += (sizeof(struct in_addr) + sizeof(uint32_t));
+      payloadPos += sizeof(struct in_addr);
     }
     tempip = static_cast<struct in_addr*>(static_cast<void*>(
       rcvd_testbed_packet->setData().data() + payloadPos));
-    std::string prefix_mask = inet_ntoa(*tempip);
-    uint32_t prefix_len = ntohl(*(static_cast<uint32_t*>(
-      static_cast<void*>(rcvd_testbed_packet->setData().data() + payloadPos
-      + sizeof(struct in_addr)))));
-    prefix_mask.append("/");
-    prefix_mask.append(std::to_string(prefix_len));
-    prefixes.push_back(prefix_mask);
+    std::string ipaddr = inet_ntoa(*tempip);
+    // cout << "instance ips: " << ipaddr << endl;
+    forward_instance_ips.push_back(ipaddr);
+    ipaddr.append("/32");
+    reverse_instance_ips.push_back(ipaddr);
   }
-  updateReverseNAT(prefixes);
-  payloadPos += (sizeof(struct in_addr) + sizeof(uint32_t));
-  std::vector<std::string> baseIPs = util.getBaseIPs(prefixes);
-  // Next extract the instance ids and loads
-  uint32_t instances_count = ntohl(*(static_cast<uint32_t*>(
-    static_cast<void*>(rcvd_testbed_packet->setData().data() + payloadPos))));
-  payloadPos += sizeof(uint32_t);
-  // So first, I erase all entries corresponding to this node ID, and then I
-  // reinsert those values so that controller is updated with the server
-  server_sessions_table.erase(node_id);
-  std::string output;
-  output.append("Update ");
-  output.append(node_id);
-  output.append("[");
-  size_t iid_load_len = sizeof(struct in_addr) + sizeof(uint32_t);
-  for (size_t index = 0; index < instances_count; index++) {
-    struct in_addr *tempip;
-    if (index != 0) {
-      payloadPos += iid_load_len;
+  updateReverseNAT(reverse_instance_ips, reverse_public_ip);
+
+  // in the server_sessions_table, if we have a matching IP, reduce it's value
+  // by one, else add the new ip as a new server instance for this url
+  std::pair<
+    std::multimap<std::string, instance_infotype >::iterator,
+    std::multimap<std::string, instance_infotype >::iterator>
+    ppp = server_sessions_table.equal_range(public_url);
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    instance_infotype &sst_values = (*iter).second;
+    std::string server_ip  = std::get<0>(sst_values);
+    if (std::find(forward_instance_ips.begin(), forward_instance_ips.end(),
+      server_ip) != forward_instance_ips.end()) {
+      auto it = std::find(forward_instance_ips.begin(),
+        forward_instance_ips.end(), server_ip);
+      // decrease server load
+      if (std::get<1>(sst_values) > 0) {
+        std::get<1>(sst_values)--;
+      }
+      forward_instance_ips.erase(it);
     }
-    tempip = static_cast<struct in_addr*>(static_cast<void*>(
-      rcvd_testbed_packet->setData().data() + payloadPos));
-    std::string instance_id = inet_ntoa(*tempip);
-    uint32_t instance_load = ntohl(*(static_cast<uint32_t*>(
-      static_cast<void*>(rcvd_testbed_packet->setData().data() + payloadPos
-      + sizeof(struct in_addr)))));
-    // I want a server_sessions_table: node_id, instance_id, load
-    // For the current implementation we are using the 0th baseIP as the
-    // public IP address of the node
-    instance_infotype instance_values(instance_id, instance_load,
-      baseIPs.at(0));
+  }
+  // Now instance ips only has new server ips left
+  for (std::string new_server_ips : forward_instance_ips) {
+    instance_infotype new_instance_value(new_server_ips, 0, reverse_public_ip);
     server_sessions_table.insert(
       std::pair<std::string,
-      instance_infotype >(node_id, instance_values));
-    output.append(instance_id);
+      instance_infotype >(public_url, new_instance_value));
+  }
+
+  // logging
+  std::string output = "Update: ";
+  output.append(public_url);
+  output.append("(");
+  output.append(std::to_string(server_sessions_table.count(public_url)));
+  output.append("): [");
+  ppp = server_sessions_table.equal_range(public_url);
+  for (std::multimap<std::string,
+    instance_infotype >::iterator iter = ppp.first;
+    iter != ppp.second; ++iter) {
+    instance_infotype val = iter->second;
+    output.append(std::get<0>(val));
     output.append("(");
-    output.append(std::to_string(instance_load));
-    output.append("); ");
+    output.append(std::to_string(std::get<1>(val)));
+    output.append(")");
+    output.append(";");
   }
   output.append("]");
   npulog(profile, cout << output << endl;)
 }
-void LoadBalancer::updateReverseNAT(const std::vector<std::string> &prefixes) {
+void LoadBalancer::updateReverseNAT(const std::vector<std::string> &prefixes,
+  std::string public_ip) {
   // For the current implementation, the 0th base IP will be the public URL
   TestbedUtilities util;
-  std::string public_ip = util.getBaseIPs(prefixes).at(0);
-  // for (std::map<std::string, std::string>::iterator it
-  //  = reverse_nat_table.begin();
-  //  it != reverse_nat_table.end(); ++it) {
-  //  npulog(profile, cout << it->first << " -> " << it->second << endl;)
-  // }
   for (std::string prefix : prefixes) {
     if (!reverse_nat_table.count(prefix)) {
       // cout << "reverse nat" << prefix << endl;
@@ -442,6 +478,7 @@ void LoadBalancer::updateReverseNAT(const std::vector<std::string> &prefixes) {
       insert_cmd.append(" perform_reverse_nat ");
       insert_cmd.append(public_ip);
       npulog(profile, cout << insert_cmd << endl;)
+      // cout << insert_cmd << endl;
       auto cmd = parser.parse_line(insert_cmd);
       lbs->send_command(cmd);
     } else {

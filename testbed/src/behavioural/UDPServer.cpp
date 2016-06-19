@@ -74,16 +74,26 @@ void UDPServer::initializeServer() {
   std::string serverID =
     util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
   // Add server instance: serverID
-npulog(debug, cout << "We will be creating a server instance: "
+  npulog(debug, cout << "We will be creating a server instance: "
     << serverID << endl;)
   server_sessions.insert(std::pair<std::string, size_t>(serverID, 0));
   outlog2 << serverID << "," << sc_time_stamp().to_default_time_units() << endl;
   std::shared_ptr<TestbedPacket> lb_packet =
     std::make_shared<TestbedPacket>();
-  util.getLoadBalancerPacket(lb_packet, server_sessions,
-    SimulationParameters["NODE"]["serverURL"].get(), ncs.prefixes.prefix_values,
-    GetParameter("dns_load_balancer").get(),
-    received_packet, ncs.list);
+  std::vector<std::string> server_instances;
+  server_instances.push_back(serverID);
+  /*
+  std::shared_ptr<TestbedPacket> lb_packet,
+  const std::vector<std::string> &server_instances,
+  const std::string &public_url,
+  const std::string &public_ip,
+  const std::string &controller_ip
+  */
+  //   const std::vector<std::string> &prefixes
+  std::string public_ip = util.getBaseIPs(ncs.prefixes.prefix_values).at(0);
+  util.getLoadBalancerPacket(lb_packet, server_instances,
+    SimulationParameters["NODE"]["serverURL"].get(), public_ip,
+    GetParameter("dns_load_balancer").get());
   // SimulationParameters["dns_load_balancer"].get()
   std::vector<std::string> hdrList =
     util.getPacketHeaders(lb_packet->getData());
@@ -335,6 +345,9 @@ std::string UDPServer::serverSessionsManager() {
     ncs.list, "dst");
   std::string  clientID = util.getIPAddress(received_packet->getData(),
     ncs.list, "src");
+  // This is a list of server instances which have either been created
+  // or have experienced a reduce in their number of sessions
+  std::vector<std::string> mod_server_instances;
   // ReceivedPacket serverID: serverID
 
   // If the current state of the received packet is serverQuery,
@@ -359,12 +372,16 @@ std::string UDPServer::serverSessionsManager() {
   } else if (cdet->connection_state == connectionTeardown) {
     // decrementing server_sessions count
     server_sessions[serverID]--;
+    mod_server_instances.push_back(serverID);
+    npulog(debug, cout << Yellow << "Decrementing server_sessions count"
+      << txtrst << endl;)
   }
   std::vector<std::string> baseIPs =
     util.getBaseIPs(ncs.prefixes.prefix_values);
   if (std::find(baseIPs.begin(), baseIPs.end(), serverID) == baseIPs.end()) {
     double total_available_sessions = 0;
     double total_sessions = 0;
+    double total_active_sessions = 0;
     // The serverID does not belong to any of the base IPs
     // The server serverID instance is reaching its capacity
     // Creating a new session
@@ -377,8 +394,9 @@ std::string UDPServer::serverSessionsManager() {
           << " is being overloaded!!" << endl;)
       }
       total_sessions += maxSessions;
-      total_available_sessions += maxSessions - it->second;
+      total_active_sessions += it->second;
     }
+    total_available_sessions = total_sessions - total_active_sessions;
     std::string outputTemp;
     outputTemp.append("Available sessions(");
     outputTemp.append(std::to_string(total_available_sessions));
@@ -400,52 +418,32 @@ std::string UDPServer::serverSessionsManager() {
         util.getServerInstanceAddress(ncs.prefixes, server_sessions, 1);
       // Add server instance: newServerID
       server_sessions.insert(std::pair<std::string, size_t>(newServerID, 0));
+      mod_server_instances.push_back(newServerID);
       outlog2 << newServerID << "," << sc_time_stamp().to_default_time_units()
         << endl;
       outputTemp.append(" - creating ");
       outputTemp.append(newServerID);
-      // sendLoadBalancerUpdatePacket();
     }
     npulog(profile, cout << Yellow << outputTemp << txtrst << endl;)
   } else {
     // We do not receive packets here anymore
     assert(!"Packet sent to server base IP");
   }
-  /*
-  for (std::map<std::string, size_t>::iterator it = server_sessions.begin();
-    it != server_sessions.end(); ++it) {
-      outlog1 << sc_time_stamp().to_default_time_units() << ","
-        << SimulationParameters["NODE"]["serverURL"].get() << ","
-        << it->first << ","
-        << it->second << ","
-        << total_available_sessions << endl;
-  }
+
+  std::shared_ptr<TestbedPacket> lb_packet = std::make_shared<TestbedPacket>();
+  /*const std::vector<std::string> &server_instances,
+  const std::string &public_url,
+  const std::string &public_ip,
+  const std::string &controller_ip
   */
-  sendLoadBalancerUpdatePacket();
-  return serverID;
-}
-void UDPServer::sendLoadBalancerUpdatePacket() {
-  TestbedUtilities util;
-  // Creating the load balancer packet after all the updates
-  // we use the 0th base IP as our node ID
-  std::shared_ptr<TestbedPacket> lb_packet =
-    std::make_shared<TestbedPacket>();
-  // Number of server sessions: server_sessions.size()
-  util.getLoadBalancerPacket(lb_packet, server_sessions,
-    SimulationParameters["NODE"]["serverURL"].get(), ncs.prefixes.prefix_values,
-    SimulationParameters["dns_load_balancer"].get(),
-    received_packet, ncs.list);
-  // struct ether_header *ethptr =
-  //  (struct ether_header*)(lb_packet->getData().data());
-  // cout << htons(ethptr->ether_type) << endl;
-  // Size of Load Balancer packer: lb_packet->getData().size()
-  std::vector<std::string> hdrList;
-  hdrList.push_back("ethernet_t");
-  hdrList.push_back("ipv4_t");
-  hdrList.push_back("udp_t");
-  util.finalizePacket(lb_packet, hdrList);
-  // Pushing load balancing packet for table update - 02
+  //   const std::vector<std::string> &prefixes
+  std::string public_ip = util.getBaseIPs(ncs.prefixes.prefix_values).at(0);
+  util.getLoadBalancerPacket(lb_packet, mod_server_instances,
+    SimulationParameters["NODE"]["serverURL"].get(), public_ip,
+    GetParameter("dns_load_balancer").get());
+  util.finalizePacket(lb_packet, util.getPacketHeaders(lb_packet->getData()));
   outgoing_packets.push(lb_packet);
+  return serverID;
 }
 // Behavioral methods
 void UDPServer::assignServer(std::string dnsreply) {

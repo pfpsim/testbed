@@ -54,7 +54,7 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations(
     auto simulation_time = getStringVector(node_params["simulationTime"]);
     if (simulation_time.size() < 2) {
       std:cerr << configFile << ": Incorrect simTime specified! Usage."
-      <<" \"12 SC_SEC\" "
+      <<" \"12 SEC\" "
       <<std::endl;
       assert(false);
     }
@@ -71,12 +71,42 @@ ClientConfigStruct TestbedUtilities::getClientConfigurations(
     } else if (simulation_time.at(1).compare("FS") == 0) {
       ncs.end_time = sc_time(stod(simulation_time.at(0)), SC_FS);
     } else {
-      std::cerr << configFile << ": Server/ Client Unknown unit for delay "
+      std::cerr << configFile << ": Server/ Client Unknown unit for simulation "
+        << "time specified!"
+        << " \nSupported values are: SC_SEC, SC_MS, SC_US, SC_NS, SC_PS, SC_FS"
+        << std::endl;
+      assert(false);
+    }
+
+
+    auto timeout = getStringVector(connection_delays["timeout"]);
+    if (timeout.size() < 2) {
+      std::cerr << configFile << ": Incorrect timeout specified! Usage."
+      <<" \"12 MS\" "
+      <<std::endl;
+      assert(false);
+    }
+    if (timeout.at(1).compare("SEC") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_SEC);
+    } else if (timeout.at(1).compare("MS") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_MS);
+    } else if (timeout.at(1).compare("US") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_US);
+    } else if (timeout.at(1).compare("NS") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_NS);
+    } else if (timeout.at(1).compare("PS") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_PS);
+    } else if (timeout.at(1).compare("FS") == 0) {
+      ncs.timeout = sc_time(stod(timeout.at(0)), SC_FS);
+    } else {
+      std::cerr << configFile << ": Server/ Client Unknown unit for timeout "
         << "specified!"
         << " \nSupported values are: SC_SEC, SC_MS, SC_US, SC_NS, SC_PS, SC_FS"
         << std::endl;
       assert(false);
     }
+
+
     ncs.archive = node_params["archive"];
 
     auto headers_list = packet_fields["headers"];
@@ -1387,12 +1417,10 @@ void TestbedUtilities::dissectPacket(const std::vector<uint8_t> &packet_data,
 
 void TestbedUtilities::getLoadBalancerPacket(
   std::shared_ptr<TestbedPacket> lb_packet,
-  const std::map<std::string, size_t> &server_sessions,
-  const std::string &node_id,
-  const std::vector<std::string> &prefixes,
-  const std::string &controller_ip,
-  std::shared_ptr<TestbedPacket> received_packet,
-  const std::vector<std::string> &headers) {
+  const std::vector<std::string> &server_instances,
+  const std::string &public_url,
+  const std::string &public_ip,
+  const std::string &controller_ip) {
   // To create the load balancer packet, we find the response packet for the
   // received packet. Next, we assign the destination IP for the lb_packet to be
   // the controller_ip. We also update the tcp_t header, if present, to the
@@ -1406,12 +1434,9 @@ void TestbedUtilities::getLoadBalancerPacket(
   // |    UDP           |
   // |------------------|
   // |    URL           |
-  // |    prefix_count  |
-  // |   *[prefix       |
-  // |     length]      |
+  // |    public_ip     |
   // |   instance_count |
-  // |   *[instances    |
-  // |     load]        |
+  // |   *[instances]   |
   // --------------------
   // struct tcphdr *tcpptr;
   lb_packet->setData().clear();
@@ -1450,18 +1475,13 @@ void TestbedUtilities::getLoadBalancerPacket(
     ip_f.ip_p = proct;
     ip_f.ip_sum = 0;
 
-    std::string ipsrc = server_sessions.begin()->first;  // , ipdst;
-    // serverIPs, clientIPs
-    // ipdst = serverIPs.at(index);
-    // dipsrc = clientIPs.at(index);
-
     if (inet_aton(controller_ip.c_str(), &ip_f.ip_dst) == 0) {
       std::cerr << "We got an invalid IP address - 08! Server addr: "
         << controller_ip << std::endl;
       assert(false);
     }
-    if (inet_aton(ipsrc.c_str(), &ip_f.ip_src) == 0) {
-      std::cerr << "We got an invalid IP address - 09! Src: " << ipsrc
+    if (inet_aton(public_ip.c_str(), &ip_f.ip_src) == 0) {
+      std::cerr << "We got an invalid IP address - 09! Src: " << public_ip
           << std::endl;
       assert(false);
     }
@@ -1476,143 +1496,61 @@ void TestbedUtilities::getLoadBalancerPacket(
       "uniform")));
     // strport = configMap.find("dport")->second;
     // port = (uint16_t) stoi(strport);
-    udp_f.uh_dport = htons(static_cast<int16_t>(getRandomNum(0, SHRT_MAX,
+    // avoid getting 53 :)
+    udp_f.uh_dport = htons(static_cast<int16_t>(getRandomNum(100, SHRT_MAX,
       "uniform")));
     udp_f.uh_ulen = 0; /* udp length */
     udp_f.uh_sum = 0; /* udp checksum */
     data =  static_cast<uint8_t*>(static_cast<void*>(&udp_f));
     lb_packet->setData().insert(lb_packet->setData().end(), data,
       data + sizeof(struct udphdr));
-  /*} else {
-    std::shared_ptr<TestbedPacket> response_packet =
-      std::make_shared<TestbedPacket>();
-    getResponseHeader(received_packet, response_packet, 0, headers);
-
-    int headerPos = 0;
-    lb_packet->setData().clear();
-    for (std::string hdr : headers) {
-      if (hdr.compare("ethernet_t") == 0) {
-        struct ether_header *ethernetptr;
-        ethernetptr = (struct ether_header*)(response_packet->getData().data());
-        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ethernetptr));
-        lb_packet->setData().insert(lb_packet->setData().end(), data,
-          data + sizeof(struct ether_header));
-        headerPos += sizeof(struct ether_header);
-      } else if (hdr.compare("ipv4_t") == 0) {
-        struct ip *ipptr;
-        ipptr = (struct ip*)(response_packet->getData().data() + headerPos);
-        if (inet_aton(controller_ip.c_str(), &ipptr->ip_dst) == 0) {
-          std::cerr << "We got an invalid IP address - 05! Controller addr: "
-            << controller_ip << std::endl;
-          assert(false);
-        }
-        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ipptr));
-        lb_packet->setData().insert(lb_packet->setData().end(), data,
-          data + sizeof(struct ip));
-        headerPos += sizeof(struct ip);
-      } else if (hdr.compare("ipv6_t") ==0) {
-        struct ip6_hdr *ip6ptr;
-        ip6ptr = (struct ip6_hdr*)(response_packet->getData().data() +
-          headerPos);
-        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(ip6ptr));
-        lb_packet->setData().insert(lb_packet->setData().end(), data,
-          data + sizeof(struct ip6_hdr));
-        headerPos += sizeof(struct ip6_hdr);
-      } else if (hdr.compare("udp_t") == 0) {
-        struct udphdr *udpptr;
-        udpptr = (struct udphdr*)(response_packet->getData().data() +
-          headerPos);
-        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(udpptr));
-        lb_packet->setData().insert(lb_packet->setData().end(), data,
-          data + sizeof(struct udphdr));
-        headerPos += sizeof(struct udphdr);
-      } else if (hdr.compare("tcp_t") == 0) {
-        tcpptr = (struct tcphdr*)(response_packet->getData().data() +
-          headerPos);
-        struct udphdr udpheader;
-        udpheader.uh_dport = tcpptr->th_dport;
-        udpheader.uh_sport = tcpptr->th_sport;
-        uint8_t *data =  static_cast<uint8_t*>(static_cast<void*>(&udpheader));
-        lb_packet->setData().insert(lb_packet->setData().end(), data,
-          data + sizeof(struct udphdr));
-        headerPos += sizeof(struct udphdr);
-        // resPacket->setData().end());
-      }
-    }
-  }*/
   // Time for the payload
   // Adding node id
   // We add it as we add it for DNS question :)
   // Let's follow a standard ;)
-  std::stringstream ss(node_id);
+  std::stringstream ss(public_url);
   std::string item;
-  std::vector<uint8_t> parsed_node_id;
+  std::vector<uint8_t> parsed_public_url;
 
   while (std::getline(ss, item, '.')) {
     int x = item.size() - 0;
-    parsed_node_id.push_back((uint8_t)x);
-    parsed_node_id.insert(parsed_node_id.end(), item.c_str(), item.c_str() + x);
+    parsed_public_url.push_back((uint8_t)x);
+    parsed_public_url.insert(parsed_public_url.end(),
+      item.c_str(), item.c_str() + x);
   }
-  parsed_node_id.push_back((uint8_t)0);
-  while (parsed_node_id.size() %4 != 0) {
-    parsed_node_id.push_back((uint8_t)0);
+  parsed_public_url.push_back((uint8_t)0);
+  while (parsed_public_url.size() %4 != 0) {
+    parsed_public_url.push_back((uint8_t)0);
   }
   lb_packet->setData().insert(lb_packet->setData().end(),
-    parsed_node_id.begin(), parsed_node_id.end());
+    parsed_public_url.begin(), parsed_public_url.end());
 
-  // Adding the prefix count
-  uint32_t prefix_count = htonl((uint32_t)prefixes.size());
-  // uint8_t *
-    data = static_cast<uint8_t*>(static_cast<void*>(&prefix_count));
-  lb_packet->setData().insert(lb_packet->setData().end(), data,
-    data + sizeof(uint32_t));
-  // Adding prefixes (prefix ip, prefix length[32])
-  for (std::string tpre : prefixes) {
-    std::stringstream prefixipss(tpre);
-    std::string mask, prefix;
-    std::getline(prefixipss, mask, '/');
-    std::getline(prefixipss, prefix, '/');
-    struct in_addr tempip;
-    if (inet_aton(mask.c_str(), &tempip) == 0) {
-      std::cerr << "We got an invalid IP address - 07! instance_id: "
-        << mask << std::endl;
-      assert(false);
-    }
-    data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
-    lb_packet->setData().insert(lb_packet->setData().end(), data,
-      data + sizeof(struct in_addr));
-    uint32_t mask_int;
-    try {
-      mask_int = htonl((uint32_t)stol(prefix));
-    } catch (std::exception &e) {
-      assert(!"Incorrect mask received");
-    }
-    data = static_cast<uint8_t*>(static_cast<void*>(&mask_int));
-    lb_packet->setData().insert(lb_packet->setData().end(), data,
-      data + sizeof(uint32_t));
+  // adding the public ip to the payload
+  struct in_addr tempip;
+  if (inet_aton(public_ip.c_str(), &tempip) == 0) {
+    std::cerr << "We got an invalid IP address - 06! public_ip: "
+      << public_ip << std::endl;
+    assert(false);
   }
+  data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
+  lb_packet->setData().insert(lb_packet->setData().end(), data,
+    data + sizeof(struct in_addr));
 
   // Adding instance counts
-  uint32_t instance_count = htonl((uint32_t)server_sessions.size());
+  uint32_t instance_count = htonl((uint32_t)server_instances.size());
   data = static_cast<uint8_t*>(static_cast<void*>(&instance_count));
   lb_packet->setData().insert(lb_packet->setData().end(), data,
     data + sizeof(uint32_t));
-  // Adding instances and load
-  struct in_addr tempip;
-  for (std::map<std::string, size_t>::const_iterator it =
-    server_sessions.begin(); it != server_sessions.end(); ++it) {
-    if (inet_aton(it->first.c_str(), &tempip) == 0) {
+  // Adding instances
+  for (std::string instance_ip : server_instances) {
+    if (inet_aton(instance_ip.c_str(), &tempip) == 0) {
       std::cerr << "We got an invalid IP address - 06! instance_id: "
-        << it->first << std::endl;
+        << instance_ip << std::endl;
       assert(false);
     }
     data = static_cast<uint8_t*>(static_cast<void*>(&tempip));
     lb_packet->setData().insert(lb_packet->setData().end(), data,
       data + sizeof(struct in_addr));
-    uint32_t server_load = htonl((uint32_t)it->second);
-    data = static_cast<uint8_t*>(static_cast<void*>(&server_load));
-    lb_packet->setData().insert(lb_packet->setData().end(), data,
-      data + sizeof(uint32_t));
   }
 }
 std::vector<std::string> TestbedUtilities::getPacketHeaders(

@@ -66,6 +66,7 @@ struct ClientConfigStruct {
   std::vector<std::string> list;
   std::vector<std::vector<uint8_t> > header_data;
   DelaysType connection_delay;
+  sc_time timeout;
   // DelaysType application_delay;
 };
 struct ServerConfigStruct {
@@ -265,12 +266,10 @@ class TestbedUtilities {
     const std::vector<std::string> &headers);
 
   void getLoadBalancerPacket(std::shared_ptr<TestbedPacket> lb_packet,
-    const std::map<std::string, size_t> &server_sessions,
-    const std::string &node_id,
-    const std::vector<std::string> &prefixes,
-    const std::string &controller_ip,
-    std::shared_ptr<TestbedPacket> received_packet,
-    const std::vector<std::string> &headers);
+    const std::vector<std::string> &server_instances,
+    const std::string &public_url,
+    const std::string &public_ip,
+    const std::string &controller_ip);
 
   std::vector<std::string>
     getPacketHeaders(const std::vector<uint8_t> &pkt);
