@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"UDPClientsRequestResponse.csv") {  //  NOLINT
+UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):UDPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+configfile+"_UDPClientsRequestResponse.csv") {  //  NOLINT
   std::istringstream cf(configfile);
   TestbedUtilities util;
   ncs = util.getClientConfigurations(this, configfile);
@@ -44,8 +44,8 @@ UDPClient::UDPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     full_name.append("_client.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
-  // Log information regarding the request-response times
-  outlog << "Client,LogicalTime,Request/Response" << endl;
+  // Log information regarding client states
+  outlog << "Client,LogicalTime,Type" << endl;
   addClientInstances();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -112,6 +112,7 @@ void UDPClient::activateClientInstance_thread() {
       // to end.
       return;
     }
+    bool reiterate_loop = false;
     // size_t activeClients = 0;
     for (std::map<std::string, struct ConnectionDetails>::iterator it
     = client_instances.begin(); it != client_instances.end(); ++it) {
@@ -139,7 +140,6 @@ void UDPClient::activateClientInstance_thread() {
         it->second.connection_state = serverQuery;
         it->second.idle_pending = waittime;
         it->second.file_pending = 0;
-        it->second.active = true;
         // Activating: it->first
         // Initiate sending of the SYN packet
         received_packet = NULL;
@@ -149,11 +149,24 @@ void UDPClient::activateClientInstance_thread() {
         npulog(debug, cout
           << "Waiting for the client to finish connection before we "
           << "activate the next client" << endl;)
-        wait(activate_client_instance_event);
-        npulog(debug,
-          cout << "Client connected successully, we can activate next client"
-            << endl;)
-        // establishConnection(it->first);
+        sc_time start_time = sc_time_stamp();
+        wait(ncs.timeout, activate_client_instance_event);
+        sc_time finish_time = sc_time_stamp();
+
+        if (finish_time - start_time >= ncs.timeout) {
+          // We need to send request for this client again!
+          npulog(profile, cout << Red << it->first
+            << "Client connection timed-out!"
+            << "We will retry at the end of the list again!" << txtrst << endl;)
+          reiterate_loop = true;
+        } else {
+          // The client instance is now active
+          it->second.active = true;
+          npulog(debug,
+            cout << "Client connected successully, we can activate next client"
+              << endl;)
+          // establishConnection(it->first);
+        }
       }
     }
     // Wait for a client instance to be activated
@@ -161,14 +174,16 @@ void UDPClient::activateClientInstance_thread() {
     // or after its UDP file transfer is done
     // We activated the specified number of client instances.
     // Waiting for next activation request!
-    npulog(debug,
-      cout << "Required client instances have been activated. Waiting for "
-        << "next round of connections" << endl;)
-    wait(reactivate_client_instance_event);
-    npulog(debug,
-      cout << "Notification for termination of a client instance received"
-        <<endl;)
-    // reactivate_client_instance_event notified.
+    if (!reiterate_loop) {
+      npulog(debug,
+        cout << "Required client instances have been activated. Waiting for "
+          << "next round of connections" << endl;)
+      wait(reactivate_client_instance_event);
+      npulog(debug,
+        cout << "Notification for termination of a client instance received"
+          <<endl;)
+      // reactivate_client_instance_event notified.
+    }
   }
 }
 void UDPClient::scheduler_thread() {
@@ -399,14 +414,13 @@ void UDPClient::acquireServerInstance(std::string clientID) {
     // Client received DNS response.
     npulog(profile, cout << Red << clientID << " is assigned with " << serverID
       << txtrst << endl;)
-    // outlog << sc_time_stamp().to_default_time_units() << ","
-    //  << clientID << ","
-    //  << serverID << endl;  // NOLINT
+    outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+      << "DNS_Request" << endl;
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;
     npulog(debug, cout << "Client " << clientID << " received DNS response. "
-      << "Going for establish connection with " << serverID << endl;)
+      << "Going to establish connection with " << serverID << endl;)
     establishConnection(clientID, serverID);
   }
 }
@@ -430,6 +444,7 @@ void UDPClient::establishConnection(std::string clientID,
     // util.getIPAddress(reqPacket->getData(), ncs.list, "dst")
     // as part of file request!
     util.finalizePacket(reqPacket, ncs.list);
+    npulog(debug, cout << clientID << " sending file request" << endl;)
     outgoing_packets.push(reqPacket);
     outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
       << "request" << endl;
@@ -465,9 +480,12 @@ void UDPClient::registerFile() {
     return;
   }
   // Client received filesize of the requested fileID: fileSize
+  outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+    << "File_Response" << endl;
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileProcessing;
   cdet->file_pending = fileSize;
+
 }
 void UDPClient::processFile() {
   // We get files split into packets

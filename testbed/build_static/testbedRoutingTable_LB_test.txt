@@ -1,18 +1,21 @@
 # IPv4 LPM
-insert_entry ipv4_lpm 117.244.34.233/16   set_nhop 10.1.0.0   1
-insert_entry ipv4_lpm 217.26.24.21/24     set_nhop 10.2.0.0   2
-insert_entry ipv4_lpm 218.19.87.21/24     set_nhop 10.3.0.0   3
-#entry for the control plane controller - dns_load_balancer
-insert_entry ipv4_lpm 50.54.33.36/32      set_nhop 12.1.0.0   4
+#server
+insert_entry ipv4_lpm 32.64.24.64/14      set_nhop 10.1.0.0   1
+#client1
+insert_entry ipv4_lpm 217.45.24.21/16     set_nhop 10.2.0.0   2
+#client2
+#insert_entry ipv4_lpm 113.38.92.66/19     set_nhop 10.3.0.0   3
+#controller
+insert_entry ipv4_lpm 50.54.33.36/32      set_nhop 12.1.0.0   3
 
 # forward
 insert_entry forward 10.1.0.0  set_dmac bb:bb:bb:bb:bb:00
 insert_entry forward 10.2.0.0  set_dmac bb:bb:bb:bb:bb:01
-insert_entry forward 10.3.0.0  set_dmac bb:bb:bb:bb:bb:02
+#insert_entry forward 10.3.0.0  set_dmac bb:bb:bb:bb:bb:02
 insert_entry forward 12.1.0.0  set_dmac bb:bb:bb:bb:bb:04
 
 # send_frame
 insert_entry send_frame 1'2  rewrite_mac aa:aa:aa:aa:aa:00
 insert_entry send_frame 2'2  rewrite_mac aa:aa:aa:aa:aa:01
 insert_entry send_frame 3'2  rewrite_mac aa:aa:aa:aa:aa:02
-insert_entry send_frame 4'2  rewrite_mac aa:aa:aa:aa:aa:03
+#insert_entry send_frame 4'2  rewrite_mac aa:aa:aa:aa:aa:03

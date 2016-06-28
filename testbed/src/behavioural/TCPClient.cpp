@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):TCPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+"TCPClientsRequestResponse.csv") {  // NOLINT
+TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string configfile ):TCPClientSIM(nm,parent,configfile),outlog(OUTPUTDIR+configfile+"_TCPClientsRequestResponse.csv") {  // NOLINT
   std::istringstream cf(configfile);
   TestbedUtilities util;
   ncs = util.getClientConfigurations(this, configfile);
@@ -44,8 +44,8 @@ TCPClient::TCPClient(sc_module_name nm, pfp::core::PFPObject* parent,std::string
     full_name.append("_client.pcap");
     pcap_logger = std::make_shared<PcapLogger>(full_name.c_str());
   }
-  // Log information regarding client requests and responses
-  outlog << "Client,LogicalTime,Request/Response" << endl;
+  // Log information regarding client states
+  outlog << "Client,LogicalTime,Type" << endl;
   addClientInstances();
   /*sc_spawn threads*/
   ThreadHandles.push_back(sc_spawn(
@@ -417,9 +417,8 @@ void TCPClient::acquireServerInstance(std::string clientID) {
     // Client received DNS response.
     npulog(profile, cout << Red << clientID << " is assigned with " << serverID
       << txtrst << endl;)
-    // outlog << sc_time_stamp().to_default_time_units() << ","
-    //  << clientID << ","
-    //  << serverID << endl;  // NOLINT
+    outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+      << "DNS_Request" << endl;
     struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
     cdet->connection_state = connectionSetup;
     received_packet = NULL;
@@ -484,8 +483,6 @@ void TCPClient::requestFile() {
   outgoing_packets.push(reqPacket);
   npulog(debug, cout << clientID << " sending request for file transfer."
     << endl;)
-  outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
-    << "request" << endl;
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileResponse;
 }
@@ -502,8 +499,6 @@ void TCPClient::registerFile() {
   size_t payloadLen = pktsize - headerLen;
   size_t fileSize = 0;
   if (payloadLen == 4) {
-    outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
-      << "response" << endl;
       npulog(debug, cout << clientID << " received file details from the server"
         << endl;)
     uint32_t *fsptr = static_cast<uint32_t*>
@@ -523,6 +518,8 @@ void TCPClient::registerFile() {
   npulog(debug, cout << clientID
     << " sending ack for the received file of size: " << fileSize
     << endl;)
+  outlog << clientID << "," << sc_time_stamp().to_default_time_units() << ","
+    << "File_Response" << endl;
   outgoing_packets.push(resPacket);
   struct ConnectionDetails *cdet = &client_instances.find(clientID)->second;
   cdet->connection_state = fileProcessing;

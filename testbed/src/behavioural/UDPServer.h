@@ -77,7 +77,7 @@ class UDPServer: public UDPServerSIM {
   MTQueue<std::shared_ptr<pfp::core::TrType> > outgoing_packets;
   std::map<std::string, struct ConnectionDetails> client_instances;
   std::map<std::string, size_t> server_sessions;
-  std::ofstream outlog1, outlog2;
+  std::ofstream se_use_logger, se_power_logger, se_throughput_logger;
 };
 
 #endif  // BEHAVIOURAL_UDPSERVER_H_

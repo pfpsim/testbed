@@ -132,7 +132,6 @@ void TCPServer::validatePacketSource_thread() {
       ncs.list, "src");
     std::string serverID = util.getIPAddress(received_packet->getData(),
       ncs.list, "dst");
-
     npulog(debug, cout << serverID << " received a packet from "
       << clientID << endl;)
     // Check if we have an ongoing file with the client

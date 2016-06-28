@@ -94,7 +94,7 @@ PE Testbed("Testbed.cfg") {
   bind demux.in {in_npu};
 };
 */
-
+/*
 PE Testbed("Testbed.cfg") {
   TestbedRdI in_npu;
   TestbedWrI out_npu;
@@ -128,8 +128,36 @@ PE Testbed("Testbed.cfg") {
   bind mux.out {out_npu};
   bind demux.in {in_npu};
 };
+*/
+PE Testbed("Testbed.cfg") {
+  TestbedRdI in_npu;
+  TestbedWrI out_npu;
+  TestbedRdI in_cp;
+  TestbedWrI out_cp;
 
+  TestbedQueue mux_in[2];
+  TestbedQueue demux_out[2];
 
+  UDPServer server_udp_test("server_udp_test.cfg");
+  bind server_udp_test.out {mux_in[0]};
+  bind server_udp_test.in {demux_out[0]};
+
+  UDPClient client_udp_test("client_udp_test.cfg");
+  bind client_udp_test.out {mux_in[1]};
+  bind client_udp_test.in {demux_out[1]};
+
+  TestbedQueue bypass;
+  TestbedMux mux;
+  TestbedDemux demux;
+
+  bind mux.bypass {bypass};
+  bind demux.bypass {bypass};
+  bind mux.in {mux_in[0], mux_in[1], in_cp};
+  bind demux.out {demux_out[0], demux_out[1], out_cp};
+
+  bind mux.out {out_npu};
+  bind demux.in {in_npu};
+};
 PE top("TopConfig.cfg") {
   ExtQueue testbed_npu, npu_testbed;
   ExtQueue testbed_cp, cp_testbed;
